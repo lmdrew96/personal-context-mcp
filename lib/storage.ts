@@ -6,20 +6,20 @@ const redis = new Redis({
   token: process.env.CONTEXT_KV_REST_API_TOKEN!,
 });
 
-const KEY = "personal_context";
+const key = (token: string) => `pctx:${token}`;
 
-export async function getContext(): Promise<PersonalContext> {
-  const stored = await redis.get<PersonalContext>(KEY);
+export async function getContext(token: string): Promise<PersonalContext> {
+  const stored = await redis.get<PersonalContext>(key(token));
   return stored ?? { ...DEFAULT_CONTEXT };
 }
 
-export async function setContext(ctx: PersonalContext): Promise<void> {
-  await redis.set(KEY, ctx);
+export async function setContext(token: string, ctx: PersonalContext): Promise<void> {
+  await redis.set(key(token), ctx);
 }
 
-export async function patchContext(patch: Partial<PersonalContext>): Promise<PersonalContext> {
-  const current = await getContext();
+export async function patchContext(token: string, patch: Partial<PersonalContext>): Promise<PersonalContext> {
+  const current = await getContext(token);
   const updated: PersonalContext = { ...current, ...patch };
-  await setContext(updated);
+  await setContext(token, updated);
   return updated;
 }

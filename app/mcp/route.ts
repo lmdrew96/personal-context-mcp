@@ -78,6 +78,9 @@ function err(id: unknown, code: number, message: string) {
 }
 
 export async function POST(req: Request) {
+  const token = new URL(req.url).searchParams.get("token");
+  if (!token) return err(null, -32600, "Missing token — use /mcp?token=YOUR_UUID");
+
   const body = await req.json();
   const { method, params, id } = body;
 
@@ -101,7 +104,7 @@ export async function POST(req: Request) {
     const { name, arguments: args } = params as { name: string; arguments: Record<string, unknown> };
 
     if (name === "pctx_get_context") {
-      const ctx = await getContext();
+      const ctx = await getContext(token);
       return ok(id, {
         content: [{ type: "text", text: JSON.stringify(ctx, null, 2) }],
       });
@@ -114,32 +117,32 @@ export async function POST(req: Request) {
       if (args.customInstructions) patch.customInstructions = args.customInstructions as string;
       if (args.projects) patch.projects = args.projects as PersonalContext["projects"];
       if (args.relationships) patch.relationships = args.relationships as PersonalContext["relationships"];
-      const updated = await patchContext(patch);
+      const updated = await patchContext(token, patch);
       return ok(id, {
         content: [{ type: "text", text: `Context updated.\n${JSON.stringify(updated, null, 2)}` }],
       });
     }
 
     if (name === "pctx_add_project") {
-      const ctx = await getContext();
+      const ctx = await getContext(token);
       ctx.projects.push({
         name: args.name as string,
         description: args.description as string,
         status: args.status as string,
       });
-      await patchContext({ projects: ctx.projects });
+      await patchContext(token, { projects: ctx.projects });
       return ok(id, {
         content: [{ type: "text", text: `Project "${args.name}" added.` }],
       });
     }
 
     if (name === "pctx_add_relationship") {
-      const ctx = await getContext();
+      const ctx = await getContext(token);
       ctx.relationships.push({
         name: args.name as string,
         role: args.role as string,
       });
-      await patchContext({ relationships: ctx.relationships });
+      await patchContext(token, { relationships: ctx.relationships });
       return ok(id, {
         content: [{ type: "text", text: `Relationship "${args.name}" (${args.role}) added.` }],
       });
