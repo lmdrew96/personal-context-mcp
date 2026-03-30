@@ -2,8 +2,8 @@ import { Redis } from "@upstash/redis";
 import { PersonalContext, DEFAULT_CONTEXT } from "./types";
 
 const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL!,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+  url: process.env.CONTEXT_KV_REST_API_URL!,
+  token: process.env.CONTEXT_KV_REST_API_TOKEN!,
 });
 
 const KEY = "personal_context";
