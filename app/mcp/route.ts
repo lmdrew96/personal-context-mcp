@@ -112,6 +112,8 @@ export async function POST(req: Request) {
       if (args.identity) patch.identity = args.identity as PersonalContext["identity"];
       if (args.preferences) patch.preferences = args.preferences as string[];
       if (args.customInstructions) patch.customInstructions = args.customInstructions as string;
+      if (args.projects) patch.projects = args.projects as PersonalContext["projects"];
+      if (args.relationships) patch.relationships = args.relationships as PersonalContext["relationships"];
       const updated = await patchContext(patch);
       return ok(id, {
         content: [{ type: "text", text: `Context updated.\n${JSON.stringify(updated, null, 2)}` }],
