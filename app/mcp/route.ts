@@ -43,6 +43,19 @@ const TOOLS = [
     },
   },
   {
+    name: "pctx_update_project",
+    description: "Update an existing project in your personal context by name.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "The name of the project to update." },
+        description: { type: "string" },
+        status: { type: "string" },
+      },
+      required: ["name"],
+    },
+  },
+  {
     name: "pctx_add_relationship",
     description: "Add a person to your relationships (e.g. co-founder, partner, collaborator).",
     inputSchema: {
@@ -120,6 +133,18 @@ export async function POST(req: Request) {
       const updated = await patchContext(token, patch);
       return ok(id, {
         content: [{ type: "text", text: `Context updated.\n${JSON.stringify(updated, null, 2)}` }],
+      });
+    }
+
+    if (name === "pctx_update_project") {
+      const ctx = await getContext(token);
+      const idx = ctx.projects.findIndex((p) => p.name === args.name);
+      if (idx === -1) return err(id, -32602, `Project "${args.name}" not found.`);
+      if (args.description) ctx.projects[idx].description = args.description as string;
+      if (args.status) ctx.projects[idx].status = args.status as string;
+      await patchContext(token, { projects: ctx.projects });
+      return ok(id, {
+        content: [{ type: "text", text: `Project "${args.name}" updated.` }],
       });
     }
 
