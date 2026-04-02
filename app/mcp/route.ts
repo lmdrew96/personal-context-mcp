@@ -56,6 +56,17 @@ const TOOLS = [
     },
   },
   {
+    name: "pctx_delete_project",
+    description: "Delete an existing project from your personal context by name.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "The name of the project to delete." },
+      },
+      required: ["name"],
+    },
+  },
+  {
     name: "pctx_add_relationship",
     description: "Add a person to your relationships (e.g. co-founder, partner, collaborator).",
     inputSchema: {
@@ -145,6 +156,17 @@ export async function POST(req: Request) {
       await patchContext(token, { projects: ctx.projects });
       return ok(id, {
         content: [{ type: "text", text: `Project "${args.name}" updated.` }],
+      });
+    }
+
+    if (name === "pctx_delete_project") {
+      const ctx = await getContext(token);
+      const idx = ctx.projects.findIndex((p) => p.name === args.name);
+      if (idx === -1) return err(id, -32602, `Project "${args.name}" not found.`);
+      ctx.projects.splice(idx, 1);
+      await patchContext(token, { projects: ctx.projects });
+      return ok(id, {
+        content: [{ type: "text", text: `Project "${args.name}" deleted.` }],
       });
     }
 
