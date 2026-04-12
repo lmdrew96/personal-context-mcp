@@ -1,4 +1,5 @@
 import { getContext, patchContext } from "@/lib/storage";
+import { summarizeContext } from "@/lib/context-utils";
 import { PersonalContext, ClaudeIdentity, Project, ProjectStatus, Relationship } from "@/lib/types";
 
 export const runtime = "edge";
@@ -9,8 +10,18 @@ const VALID_STATUSES: ProjectStatus[] = ["active", "paused", "concept", "archive
 const TOOLS = [
   {
     name: "pctx_get_context",
-    description: "Retrieve your full personal context. If a &name= param is set on your MCP URL, the response includes 'you' (your Claude identity) and 'peers' (other Claudes). Otherwise returns all claude identities as an array.",
-    inputSchema: { type: "object", properties: {}, required: [] },
+    description: "Retrieve your personal context. Use depth='summary' for a lightweight overview (project names+statuses, relationship names+roles). Use depth='full' (default) for everything including architecture notes, stack, and relationship context.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        depth: {
+          type: "string",
+          enum: ["summary", "full"],
+          description: "Level of detail. 'summary' returns lightweight fields only (saves tokens). 'full' returns everything. Default: 'full'.",
+        },
+      },
+      required: [],
+    },
   },
   {
     name: "pctx_update_context",
@@ -221,7 +232,9 @@ export async function POST(req: Request) {
     const { name, arguments: args } = params as { name: string; arguments: Record<string, unknown> };
 
     if (name === "pctx_get_context") {
-      const ctx = await getContext(token);
+      const raw = await getContext(token);
+      const depth = (args.depth as string) ?? "full";
+      const ctx = depth === "summary" ? summarizeContext(raw) : raw;
       const identities = ctx.claudeIdentities ?? [];
 
       if (callerName) {
