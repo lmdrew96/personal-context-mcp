@@ -78,6 +78,29 @@ const TOOLS = [
       required: ["name", "role"],
     },
   },
+  {
+    name: "pctx_update_relationship",
+    description: "Update an existing relationship in your personal context by name.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "The name of the person to update." },
+        role: { type: "string", description: "The new role for this person." },
+      },
+      required: ["name", "role"],
+    },
+  },
+  {
+    name: "pctx_delete_relationship",
+    description: "Delete a relationship from your personal context by name.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "The name of the person to remove." },
+      },
+      required: ["name"],
+    },
+  },
 ];
 
 function ok(id: unknown, result: unknown) {
@@ -192,6 +215,28 @@ export async function POST(req: Request) {
       await patchContext(token, { relationships: ctx.relationships });
       return ok(id, {
         content: [{ type: "text", text: `Relationship "${args.name}" (${args.role}) added.` }],
+      });
+    }
+
+    if (name === "pctx_update_relationship") {
+      const ctx = await getContext(token);
+      const idx = ctx.relationships.findIndex((r) => r.name === args.name);
+      if (idx === -1) return err(id, -32602, `Relationship "${args.name}" not found.`);
+      ctx.relationships[idx].role = args.role as string;
+      await patchContext(token, { relationships: ctx.relationships });
+      return ok(id, {
+        content: [{ type: "text", text: `Relationship "${args.name}" updated to role "${args.role}".` }],
+      });
+    }
+
+    if (name === "pctx_delete_relationship") {
+      const ctx = await getContext(token);
+      const idx = ctx.relationships.findIndex((r) => r.name === args.name);
+      if (idx === -1) return err(id, -32602, `Relationship "${args.name}" not found.`);
+      ctx.relationships.splice(idx, 1);
+      await patchContext(token, { relationships: ctx.relationships });
+      return ok(id, {
+        content: [{ type: "text", text: `Relationship "${args.name}" deleted.` }],
       });
     }
 
