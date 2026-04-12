@@ -1,9 +1,18 @@
+export type ClaudeIdentity = {
+  name: string;
+  role: string;
+  home: string;
+  access: string;
+  blurb: string;
+};
+
 export type PersonalContext = {
   identity: {
     name: string;
     pronouns?: string;
     communicationStyle?: string;
   };
+  claudeIdentities: ClaudeIdentity[];
   projects: {
     name: string;
     description: string;
@@ -23,6 +32,7 @@ export const DEFAULT_CONTEXT: PersonalContext = {
     pronouns: "",
     communicationStyle: "",
   },
+  claudeIdentities: [],
   projects: [],
   relationships: [],
   preferences: [],

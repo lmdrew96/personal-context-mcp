@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import type { PersonalContext } from "@/lib/types";
+import type { PersonalContext, ClaudeIdentity } from "@/lib/types";
 
 const BASE_URL = "https://personal-context-mcp.vercel.app";
 
@@ -27,6 +27,7 @@ async function saveContext(token: string, ctx: PersonalContext): Promise<void> {
 
 const EMPTY: PersonalContext = {
   identity: { name: "", pronouns: "", communicationStyle: "" },
+  claudeIdentities: [],
   projects: [],
   relationships: [],
   preferences: [],
@@ -163,6 +164,32 @@ function RelRow({ rel, onChange, onRemove }: {
   );
 }
 
+function ClaudeIdentityRow({ ci, onChange, onRemove }: {
+  ci: ClaudeIdentity;
+  onChange: (c: ClaudeIdentity) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "12px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <input value={ci.name} onChange={(e) => onChange({ ...ci, name: e.target.value })}
+          placeholder="Name (e.g. Claudiu)" style={{ ...s.input, width: "30%" }} />
+        <input value={ci.role} onChange={(e) => onChange({ ...ci, role: e.target.value })}
+          placeholder="Role (e.g. Platform voice for Cha(t)os, Desktop coding companion)" style={{ ...s.input, flex: 1 }} />
+        <button onClick={onRemove} style={s.removeBtn}>✕</button>
+      </div>
+      <div style={{ display: "flex", gap: 8 }}>
+        <input value={ci.home} onChange={(e) => onChange({ ...ci, home: e.target.value })}
+          placeholder="Home (e.g. Cha(t)os platform)" style={{ ...s.input, flex: 1 }} />
+        <input value={ci.access} onChange={(e) => onChange({ ...ci, access: e.target.value })}
+          placeholder="Access (e.g. Full pctx memory)" style={{ ...s.input, flex: 1 }} />
+      </div>
+      <input value={ci.blurb} onChange={(e) => onChange({ ...ci, blurb: e.target.value })}
+        placeholder="Self-description (e.g. Claudiu lives here.)" style={{ ...s.input, fontStyle: "italic" }} />
+    </div>
+  );
+}
+
 // ── main page ─────────────────────────────────────────────────────────────────
 
 export default function Home() {
@@ -237,6 +264,13 @@ export default function Home() {
     setCtx((c) => ({ ...c, relationships: c.relationships.filter((_, j) => j !== i) }));
   const addRel = () =>
     setCtx((c) => ({ ...c, relationships: [...c.relationships, { name: "", role: "" }] }));
+
+  const updateClaudeId = (i: number, ci: ClaudeIdentity) =>
+    setCtx((c) => ({ ...c, claudeIdentities: (c.claudeIdentities ?? []).map((x, j) => j === i ? ci : x) }));
+  const removeClaudeId = (i: number) =>
+    setCtx((c) => ({ ...c, claudeIdentities: (c.claudeIdentities ?? []).filter((_, j) => j !== i) }));
+  const addClaudeId = () =>
+    setCtx((c) => ({ ...c, claudeIdentities: [...(c.claudeIdentities ?? []), { name: "", role: "", home: "", access: "", blurb: "" }] }));
 
   const addPref = () => {
     if (!newPref.trim()) return;
@@ -333,9 +367,20 @@ export default function Home() {
           <Field label="Pronouns" value={ctx.identity.pronouns ?? ""}
             onChange={(v) => setCtx((c) => ({ ...c, identity: { ...c.identity, pronouns: v } }))}
             placeholder="e.g. she/her" />
-          <Field label="Communication style" value={ctx.identity.communicationStyle ?? ""}
+          <Field label="Preferred communication style" value={ctx.identity.communicationStyle ?? ""}
             onChange={(v) => setCtx((c) => ({ ...c, identity: { ...c.identity, communicationStyle: v } }))}
-            placeholder="e.g. direct, ADHD-friendly, no fluff" />
+            placeholder="e.g. direct, no fluff, explain new concepts briefly" />
+        </div>
+
+        {/* Claude Identities */}
+        <div style={s.section}>
+          <p style={s.sectionTitle}>Claude Identities</p>
+          {(ctx.claudeIdentities ?? []).map((ci, i) => (
+            <ClaudeIdentityRow key={i} ci={ci}
+              onChange={(updated) => updateClaudeId(i, updated)}
+              onRemove={() => removeClaudeId(i)} />
+          ))}
+          <button onClick={addClaudeId} style={s.addBtn}>+ Add Claude identity</button>
         </div>
 
         {/* Custom instructions */}
@@ -372,7 +417,7 @@ export default function Home() {
 
         {/* Preferences */}
         <div style={s.section}>
-          <p style={s.sectionTitle}>Preferences</p>
+          <p style={s.sectionTitle}>Preferences for Claude</p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {ctx.preferences.map((pref, i) => (
               <span key={i} style={s.pill("#88739E")}>
@@ -384,7 +429,7 @@ export default function Home() {
           <div style={{ display: "flex", gap: 8 }}>
             <input value={newPref} onChange={(e) => setNewPref(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && addPref()}
-              placeholder="Add a preference and press Enter"
+              placeholder="e.g. Always use TypeScript, prefer concise responses"
               style={{ ...s.input, flex: 1 }} />
             <button onClick={addPref} style={{
               background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
@@ -405,6 +450,9 @@ export default function Home() {
               {copied ? "✓" : "Copy"}
             </button>
           </div>
+          <p style={{ fontSize: 11, color: "rgba(247,245,250,0.25)", marginTop: 8, margin: "8px 0 0 0" }}>
+            Tip: Add <code style={{ color: "#8CBDB9" }}>&name=Claudiu</code> to give each Claude its own identity.
+          </p>
         </div>
 
         {/* Danger zone */}

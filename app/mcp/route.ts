@@ -1,5 +1,5 @@
 import { getContext, patchContext } from "@/lib/storage";
-import { PersonalContext } from "@/lib/types";
+import { PersonalContext, ClaudeIdentity } from "@/lib/types";
 
 export const runtime = "edge";
 
@@ -7,12 +7,12 @@ export const runtime = "edge";
 const TOOLS = [
   {
     name: "pctx_get_context",
-    description: "Retrieve your full personal context: identity, projects, relationships, preferences, and custom instructions.",
+    description: "Retrieve your full personal context. If a &name= param is set on your MCP URL, the response includes 'you' (your Claude identity) and 'peers' (other Claudes). Otherwise returns all claude identities as an array.",
     inputSchema: { type: "object", properties: {}, required: [] },
   },
   {
     name: "pctx_update_context",
-    description: "Update top-level fields of your personal context (identity, preferences, customInstructions).",
+    description: "Update top-level fields of your personal context (identity, claudeIdentities, preferences, customInstructions).",
     inputSchema: {
       type: "object",
       properties: {
@@ -22,6 +22,19 @@ const TOOLS = [
             name: { type: "string" },
             pronouns: { type: "string" },
             communicationStyle: { type: "string" },
+          },
+        },
+        claudeIdentities: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              role: { type: "string" },
+              home: { type: "string" },
+              access: { type: "string" },
+              blurb: { type: "string" },
+            },
           },
         },
         preferences: { type: "array", items: { type: "string" } },
@@ -101,6 +114,47 @@ const TOOLS = [
       required: ["name"],
     },
   },
+  {
+    name: "pctx_add_claude_identity",
+    description: "Register a Claude identity — who you are, where you live, and what you can access.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Your name (e.g. Claudiu, Coru, Cody)." },
+        role: { type: "string", description: "Your role (e.g. Platform voice, Desktop companion)." },
+        home: { type: "string", description: "Where you live (e.g. Cha(t)os platform, Claude Code CLI)." },
+        access: { type: "string", description: "What you can access (e.g. Full pctx memory, all users)." },
+        blurb: { type: "string", description: "A short self-description (e.g. Claudiu lives here)." },
+      },
+      required: ["name", "role", "home", "access", "blurb"],
+    },
+  },
+  {
+    name: "pctx_update_claude_identity",
+    description: "Update an existing Claude identity by name.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "The name of the Claude identity to update." },
+        role: { type: "string" },
+        home: { type: "string" },
+        access: { type: "string" },
+        blurb: { type: "string" },
+      },
+      required: ["name"],
+    },
+  },
+  {
+    name: "pctx_delete_claude_identity",
+    description: "Delete a Claude identity by name.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "The name of the Claude identity to remove." },
+      },
+      required: ["name"],
+    },
+  },
 ];
 
 function ok(id: unknown, result: unknown) {
@@ -125,8 +179,10 @@ function err(id: unknown, code: number, message: string) {
 }
 
 export async function POST(req: Request) {
-  const token = new URL(req.url).searchParams.get("token");
+  const url = new URL(req.url);
+  const token = url.searchParams.get("token");
   if (!token) return err(null, -32600, "Missing token — use /mcp?token=YOUR_UUID");
+  const callerName = url.searchParams.get("name");
 
   const body = await req.json();
   const { method, params, id } = body;
@@ -152,6 +208,26 @@ export async function POST(req: Request) {
 
     if (name === "pctx_get_context") {
       const ctx = await getContext(token);
+      const identities = ctx.claudeIdentities ?? [];
+
+      if (callerName) {
+        const self = identities.find(
+          (ci) => ci.name.toLowerCase() === callerName.toLowerCase()
+        );
+        const peers = identities.filter(
+          (ci) => ci.name.toLowerCase() !== callerName.toLowerCase()
+        );
+        const { claudeIdentities: _, ...rest } = ctx;
+        const shaped = {
+          ...rest,
+          you: self ?? { name: callerName, role: "unknown", home: "unknown", access: "unknown", blurb: "" },
+          peers,
+        };
+        return ok(id, {
+          content: [{ type: "text", text: JSON.stringify(shaped, null, 2) }],
+        });
+      }
+
       return ok(id, {
         content: [{ type: "text", text: JSON.stringify(ctx, null, 2) }],
       });
@@ -160,6 +236,7 @@ export async function POST(req: Request) {
     if (name === "pctx_update_context") {
       const patch: Partial<PersonalContext> = {};
       if (args.identity) patch.identity = args.identity as PersonalContext["identity"];
+      if (args.claudeIdentities) patch.claudeIdentities = args.claudeIdentities as PersonalContext["claudeIdentities"];
       if (args.preferences) patch.preferences = args.preferences as string[];
       if (args.customInstructions) patch.customInstructions = args.customInstructions as string;
       if (args.projects) patch.projects = args.projects as PersonalContext["projects"];
@@ -237,6 +314,49 @@ export async function POST(req: Request) {
       await patchContext(token, { relationships: ctx.relationships });
       return ok(id, {
         content: [{ type: "text", text: `Relationship "${args.name}" deleted.` }],
+      });
+    }
+
+    if (name === "pctx_add_claude_identity") {
+      const ctx = await getContext(token);
+      const identities = ctx.claudeIdentities ?? [];
+      identities.push({
+        name: args.name as string,
+        role: args.role as string,
+        home: args.home as string,
+        access: args.access as string,
+        blurb: args.blurb as string,
+      });
+      await patchContext(token, { claudeIdentities: identities });
+      return ok(id, {
+        content: [{ type: "text", text: `Claude identity "${args.name}" registered.` }],
+      });
+    }
+
+    if (name === "pctx_update_claude_identity") {
+      const ctx = await getContext(token);
+      const identities = ctx.claudeIdentities ?? [];
+      const idx = identities.findIndex((ci) => ci.name === args.name);
+      if (idx === -1) return err(id, -32602, `Claude identity "${args.name}" not found.`);
+      if (args.role) identities[idx].role = args.role as string;
+      if (args.home) identities[idx].home = args.home as string;
+      if (args.access) identities[idx].access = args.access as string;
+      if (args.blurb) identities[idx].blurb = args.blurb as string;
+      await patchContext(token, { claudeIdentities: identities });
+      return ok(id, {
+        content: [{ type: "text", text: `Claude identity "${args.name}" updated.` }],
+      });
+    }
+
+    if (name === "pctx_delete_claude_identity") {
+      const ctx = await getContext(token);
+      const identities = ctx.claudeIdentities ?? [];
+      const idx = identities.findIndex((ci) => ci.name === args.name);
+      if (idx === -1) return err(id, -32602, `Claude identity "${args.name}" not found.`);
+      identities.splice(idx, 1);
+      await patchContext(token, { claudeIdentities: identities });
+      return ok(id, {
+        content: [{ type: "text", text: `Claude identity "${args.name}" deleted.` }],
       });
     }
 
