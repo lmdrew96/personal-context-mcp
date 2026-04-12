@@ -1,7 +1,9 @@
 import { getContext, patchContext } from "@/lib/storage";
-import { PersonalContext, ClaudeIdentity } from "@/lib/types";
+import { PersonalContext, ClaudeIdentity, Project, ProjectStatus, Relationship } from "@/lib/types";
 
 export const runtime = "edge";
+
+const VALID_STATUSES: ProjectStatus[] = ["active", "paused", "concept", "archived"];
 
 // MCP tool definitions
 const TOOLS = [
@@ -48,11 +50,16 @@ const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        name: { type: "string" },
-        description: { type: "string" },
-        status: { type: "string" },
+        name: { type: "string", description: "Project name." },
+        summary: { type: "string", description: "1-2 sentence elevator pitch." },
+        status: { type: "string", enum: VALID_STATUSES, description: "Project status." },
+        slug: { type: "string", description: "Short identifier for cross-referencing (e.g. 'chatos')." },
+        url: { type: "string", description: "Live URL (e.g. 'chatos.adhdesigns.dev')." },
+        stack: { type: "array", items: { type: "string" }, description: "Tech stack tags (e.g. ['Next.js', 'Convex', 'Clerk'])." },
+        architecture: { type: "string", description: "Deeper technical/architecture notes." },
+        currentFocus: { type: "string", description: "What's actively being worked on right now." },
       },
-      required: ["name", "description", "status"],
+      required: ["name", "summary", "status"],
     },
   },
   {
@@ -62,8 +69,13 @@ const TOOLS = [
       type: "object",
       properties: {
         name: { type: "string", description: "The name of the project to update." },
-        description: { type: "string" },
-        status: { type: "string" },
+        summary: { type: "string", description: "1-2 sentence elevator pitch." },
+        status: { type: "string", enum: VALID_STATUSES, description: "Project status." },
+        slug: { type: "string", description: "Short identifier for cross-referencing." },
+        url: { type: "string", description: "Live URL." },
+        stack: { type: "array", items: { type: "string" }, description: "Tech stack tags." },
+        architecture: { type: "string", description: "Deeper technical/architecture notes." },
+        currentFocus: { type: "string", description: "What's actively being worked on right now." },
       },
       required: ["name"],
     },
@@ -85,8 +97,9 @@ const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        name: { type: "string" },
-        role: { type: "string" },
+        name: { type: "string", description: "Person's name." },
+        role: { type: "string", description: "Short role title (e.g. 'Partner', 'Close friend', 'Co-leader')." },
+        context: { type: "string", description: "Longer narrative — personality, lore, how you know them. Only injected when relevant." },
       },
       required: ["name", "role"],
     },
@@ -98,9 +111,10 @@ const TOOLS = [
       type: "object",
       properties: {
         name: { type: "string", description: "The name of the person to update." },
-        role: { type: "string", description: "The new role for this person." },
+        role: { type: "string", description: "Short role title." },
+        context: { type: "string", description: "Longer narrative context." },
       },
-      required: ["name", "role"],
+      required: ["name"],
     },
   },
   {
@@ -191,7 +205,7 @@ export async function POST(req: Request) {
     return ok(id, {
       protocolVersion: "2024-11-05",
       capabilities: { tools: {} },
-      serverInfo: { name: "personal-context-mcp", version: "1.0.0" },
+      serverInfo: { name: "personal-context-mcp", version: "2.0.0" },
     });
   }
 
@@ -247,12 +261,37 @@ export async function POST(req: Request) {
       });
     }
 
+    if (name === "pctx_add_project") {
+      const ctx = await getContext(token);
+      const project: Project = {
+        name: args.name as string,
+        summary: args.summary as string,
+        status: (args.status as ProjectStatus) ?? "active",
+      };
+      if (args.slug) project.slug = args.slug as string;
+      if (args.url) project.url = args.url as string;
+      if (args.stack) project.stack = args.stack as string[];
+      if (args.architecture) project.architecture = args.architecture as string;
+      if (args.currentFocus) project.currentFocus = args.currentFocus as string;
+      ctx.projects.push(project);
+      await patchContext(token, { projects: ctx.projects });
+      return ok(id, {
+        content: [{ type: "text", text: `Project "${args.name}" added.` }],
+      });
+    }
+
     if (name === "pctx_update_project") {
       const ctx = await getContext(token);
       const idx = ctx.projects.findIndex((p) => p.name === args.name);
       if (idx === -1) return err(id, -32602, `Project "${args.name}" not found.`);
-      if (args.description) ctx.projects[idx].description = args.description as string;
-      if (args.status) ctx.projects[idx].status = args.status as string;
+      const p = ctx.projects[idx];
+      if (args.summary !== undefined) p.summary = args.summary as string;
+      if (args.status !== undefined) p.status = args.status as ProjectStatus;
+      if (args.slug !== undefined) p.slug = args.slug as string;
+      if (args.url !== undefined) p.url = args.url as string;
+      if (args.stack !== undefined) p.stack = args.stack as string[];
+      if (args.architecture !== undefined) p.architecture = args.architecture as string;
+      if (args.currentFocus !== undefined) p.currentFocus = args.currentFocus as string;
       await patchContext(token, { projects: ctx.projects });
       return ok(id, {
         content: [{ type: "text", text: `Project "${args.name}" updated.` }],
@@ -270,25 +309,14 @@ export async function POST(req: Request) {
       });
     }
 
-    if (name === "pctx_add_project") {
-      const ctx = await getContext(token);
-      ctx.projects.push({
-        name: args.name as string,
-        description: args.description as string,
-        status: args.status as string,
-      });
-      await patchContext(token, { projects: ctx.projects });
-      return ok(id, {
-        content: [{ type: "text", text: `Project "${args.name}" added.` }],
-      });
-    }
-
     if (name === "pctx_add_relationship") {
       const ctx = await getContext(token);
-      ctx.relationships.push({
+      const rel: Relationship = {
         name: args.name as string,
         role: args.role as string,
-      });
+      };
+      if (args.context) rel.context = args.context as string;
+      ctx.relationships.push(rel);
       await patchContext(token, { relationships: ctx.relationships });
       return ok(id, {
         content: [{ type: "text", text: `Relationship "${args.name}" (${args.role}) added.` }],
@@ -299,10 +327,11 @@ export async function POST(req: Request) {
       const ctx = await getContext(token);
       const idx = ctx.relationships.findIndex((r) => r.name === args.name);
       if (idx === -1) return err(id, -32602, `Relationship "${args.name}" not found.`);
-      ctx.relationships[idx].role = args.role as string;
+      if (args.role !== undefined) ctx.relationships[idx].role = args.role as string;
+      if (args.context !== undefined) ctx.relationships[idx].context = args.context as string;
       await patchContext(token, { relationships: ctx.relationships });
       return ok(id, {
-        content: [{ type: "text", text: `Relationship "${args.name}" updated to role "${args.role}".` }],
+        content: [{ type: "text", text: `Relationship "${args.name}" updated.` }],
       });
     }
 

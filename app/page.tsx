@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import type { PersonalContext, ClaudeIdentity } from "@/lib/types";
+import type { PersonalContext, ClaudeIdentity, Project, Relationship } from "@/lib/types";
 
 const BASE_URL = "https://personal-context-mcp.vercel.app";
 
@@ -33,6 +33,13 @@ const EMPTY: PersonalContext = {
   preferences: [],
   customInstructions: "",
 };
+
+const STATUS_OPTIONS = [
+  { value: "active", label: "Active" },
+  { value: "paused", label: "Paused" },
+  { value: "concept", label: "Concept" },
+  { value: "archived", label: "Archived" },
+] as const;
 
 // ── styles ───────────────────────────────────────────────────────────────────
 
@@ -124,42 +131,77 @@ function Field({ label, value, onChange, placeholder, mono }: {
 }
 
 function ProjectRow({ project, onChange, onRemove }: {
-  project: PersonalContext["projects"][0];
-  onChange: (p: PersonalContext["projects"][0]) => void;
+  project: Project;
+  onChange: (p: Project) => void;
   onRemove: () => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
   return (
-    <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-      <div style={{ flex: 1, display: "flex", gap: 8 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "12px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
         <input value={project.name} onChange={(e) => onChange({ ...project, name: e.target.value })}
           placeholder="Name" style={{ ...s.input, width: "30%" }} />
-        <input value={project.description} onChange={(e) => onChange({ ...project, description: e.target.value })}
-          placeholder="Description" style={{ ...s.input, flex: 1 }} />
-        <select value={project.status} onChange={(e) => onChange({ ...project, status: e.target.value })}
+        <input value={project.summary} onChange={(e) => onChange({ ...project, summary: e.target.value })}
+          placeholder="Summary (1-2 sentences)" style={{ ...s.input, flex: 1 }} />
+        <select value={project.status} onChange={(e) => onChange({ ...project, status: e.target.value as Project["status"] })}
           style={{ ...s.input, width: 110, cursor: "pointer" }}>
-          <option value="active">active</option>
-          <option value="paused">paused</option>
-          <option value="complete">complete</option>
-          <option value="archived">archived</option>
+          {STATUS_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
         </select>
+        <button onClick={() => setExpanded(!expanded)}
+          style={{ ...s.removeBtn, fontSize: 12, color: "rgba(247,245,250,0.35)" }}
+          title="Toggle details">{expanded ? "▾" : "▸"}</button>
+        <button onClick={onRemove} style={s.removeBtn}>✕</button>
       </div>
-      <button onClick={onRemove} style={{ ...s.removeBtn, marginTop: 10 }}>✕</button>
+      {expanded && (
+        <>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input value={project.slug ?? ""} onChange={(e) => onChange({ ...project, slug: e.target.value || undefined })}
+              placeholder="Slug (e.g. chatos)" style={{ ...s.input, width: "25%" }} />
+            <input value={project.url ?? ""} onChange={(e) => onChange({ ...project, url: e.target.value || undefined })}
+              placeholder="URL (e.g. chatos.adhdesigns.dev)" style={{ ...s.input, flex: 1 }} />
+          </div>
+          <input value={project.currentFocus ?? ""} onChange={(e) => onChange({ ...project, currentFocus: e.target.value || undefined })}
+            placeholder="Current focus (what's being worked on now)" style={s.input} />
+          <input value={(project.stack ?? []).join(", ")}
+            onChange={(e) => onChange({ ...project, stack: e.target.value ? e.target.value.split(",").map((t) => t.trim()).filter(Boolean) : undefined })}
+            placeholder="Stack (comma-separated: Next.js, Convex, Clerk)" style={s.input} />
+          <textarea value={project.architecture ?? ""}
+            onChange={(e) => onChange({ ...project, architecture: e.target.value || undefined })}
+            placeholder="Architecture notes (deeper technical details — only injected when relevant)"
+            rows={3} style={{ ...s.input, resize: "vertical", lineHeight: 1.6 }} />
+        </>
+      )}
     </div>
   );
 }
 
 function RelRow({ rel, onChange, onRemove }: {
-  rel: PersonalContext["relationships"][0];
-  onChange: (r: PersonalContext["relationships"][0]) => void;
+  rel: Relationship;
+  onChange: (r: Relationship) => void;
   onRemove: () => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
+  const hasContext = !!(rel.context?.trim());
   return (
-    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-      <input value={rel.name} onChange={(e) => onChange({ ...rel, name: e.target.value })}
-        placeholder="Name" style={{ ...s.input, width: "35%" }} />
-      <input value={rel.role} onChange={(e) => onChange({ ...rel, role: e.target.value })}
-        placeholder="Role (e.g. partner, co-founder)" style={{ ...s.input, flex: 1 }} />
-      <button onClick={onRemove} style={s.removeBtn}>✕</button>
+    <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <input value={rel.name} onChange={(e) => onChange({ ...rel, name: e.target.value })}
+          placeholder="Name" style={{ ...s.input, width: "35%" }} />
+        <input value={rel.role} onChange={(e) => onChange({ ...rel, role: e.target.value })}
+          placeholder="Role (e.g. Partner, Co-leader)" style={{ ...s.input, flex: 1 }} />
+        <button onClick={() => setExpanded(!expanded)}
+          style={{ ...s.removeBtn, fontSize: 12, color: hasContext ? "#8CBDB9" : "rgba(247,245,250,0.35)" }}
+          title="Toggle context">{expanded ? "▾" : "▸"}</button>
+        <button onClick={onRemove} style={s.removeBtn}>✕</button>
+      </div>
+      {expanded && (
+        <textarea value={rel.context ?? ""}
+          onChange={(e) => onChange({ ...rel, context: e.target.value || undefined })}
+          placeholder="Context — personality, lore, how you know them (only injected when relevant)"
+          rows={2} style={{ ...s.input, resize: "vertical", lineHeight: 1.6 }} />
+      )}
     </div>
   );
 }
@@ -251,14 +293,14 @@ export default function Home() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const updateProject = (i: number, p: PersonalContext["projects"][0]) =>
+  const updateProject = (i: number, p: Project) =>
     setCtx((c) => ({ ...c, projects: c.projects.map((x, j) => j === i ? p : x) }));
   const removeProject = (i: number) =>
     setCtx((c) => ({ ...c, projects: c.projects.filter((_, j) => j !== i) }));
   const addProject = () =>
-    setCtx((c) => ({ ...c, projects: [...c.projects, { name: "", description: "", status: "active" }] }));
+    setCtx((c) => ({ ...c, projects: [...c.projects, { name: "", summary: "", status: "active" as const }] }));
 
-  const updateRel = (i: number, r: PersonalContext["relationships"][0]) =>
+  const updateRel = (i: number, r: Relationship) =>
     setCtx((c) => ({ ...c, relationships: c.relationships.map((x, j) => j === i ? r : x) }));
   const removeRel = (i: number) =>
     setCtx((c) => ({ ...c, relationships: c.relationships.filter((_, j) => j !== i) }));
