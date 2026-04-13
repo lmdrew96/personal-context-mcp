@@ -10,7 +10,7 @@ const VALID_STATUSES: ProjectStatus[] = ["active", "paused", "concept", "archive
 const TOOLS = [
   {
     name: "pctx_get_context",
-    description: "Retrieve your personal context. Use depth='summary' for a lightweight overview (project names+statuses, relationship names+roles). Use depth='full' (default) for everything including architecture notes, stack, and relationship context.",
+    description: "Retrieve your personal context. Use depth='summary' for a lightweight overview (project names+summaries+statuses, relationship names+roles). Use depth='full' (default) for everything including architecture notes, stack, and relationship context.",
     inputSchema: {
       type: "object",
       properties: {
