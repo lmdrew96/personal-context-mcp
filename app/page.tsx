@@ -153,29 +153,27 @@ function FactRow({ fact, onChange, onRemove }: {
         <button onClick={onRemove} style={s.removeBtn}>✕</button>
       </div>
 
-      {/*
-        TODO (Nae): lay this meta row out.
-        Three controls — category, established, confidence — currently stacked
-        because this <div> has no layout of its own. They should sit on one line.
-        Hint: the parent column already uses `display: flex` with a `gap`; this
-        row wants the same idea on the other axis. `established` is the narrow
-        one (a date), so think about which children should grow and which
-        shouldn't — `flex: 1` vs a fixed `width`.
-      */}
-      <div>
+      {/* Meta row: the two selects share the leftover width, the date keeps a fixed one. */}
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
         <select value={fact.category}
           onChange={(e) => onChange({ ...fact, category: e.target.value as Fact["category"] })}
-          style={{ ...s.input, cursor: "pointer" }}>
+          style={{ ...s.input, flex: 1, minWidth: 0, cursor: "pointer" }}>
           {FACT_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
         <input value={fact.established ?? ""}
           onChange={(e) => onChange({ ...fact, established: e.target.value })}
           placeholder="YYYY-MM"
           title="When this became true. Required — undated facts rot invisibly."
-          style={{ ...s.input, borderColor: undated ? "rgba(255,144,144,0.5)" : undefined }} />
+          style={{
+            ...s.input,
+            width: 104,
+            flex: "0 0 auto",
+            fontFamily: "monospace",
+            borderColor: undated ? "rgba(255,144,144,0.5)" : undefined,
+          }} />
         <select value={fact.confidence ?? ""}
           onChange={(e) => onChange({ ...fact, confidence: (e.target.value || undefined) as Fact["confidence"] })}
-          style={{ ...s.input, cursor: "pointer" }}>
+          style={{ ...s.input, flex: 1, minWidth: 0, cursor: "pointer" }}>
           <option value="">confidence…</option>
           {FACT_CONFIDENCES.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
