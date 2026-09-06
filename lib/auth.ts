@@ -176,6 +176,16 @@ export const requireAccount = async (req: Request): Promise<Account | null> => {
 
 // ── Rate limiting ────────────────────────────────────────────────────────────
 
+/**
+ * Hash the identifier so raw IP addresses never become Redis key names.
+ * The scope stays readable (`pctx:rl:login:ip:…`) so these keys are still
+ * self-explanatory when you're looking at the store directly.
+ */
+const rateId = async (id: string): Promise<string> => {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(id));
+  return toB64(digest).replace(/[+/=]/g, "").slice(0, 22);
+};
+
 /** Returns true when the caller is over budget. Fails OPEN if Redis errors. */
 export const isRateLimited = async (
   scope: string,
@@ -184,16 +194,24 @@ export const isRateLimited = async (
   windowSeconds: number
 ): Promise<boolean> => {
   try {
-    const k = rateKey(scope, id);
+    const k = rateKey(scope, await rateId(id));
     const n = await redis.incr(k);
-    if (n === 1) await redis.expire(k, windowSeconds);
+    if (n === 1) {
+      await redis.expire(k, windowSeconds);
+    } else if ((await redis.ttl(k)) < 0) {
+      // INCR created the key but the EXPIRE never landed (a transient Redis
+      // error on the first request). Without this the counter never resets and
+      // the caller is locked out of login permanently.
+      await redis.expire(k, windowSeconds);
+    }
     return n > max;
   } catch {
     return false;
   }
 };
 
-export const clearRateLimit = (scope: string, id: string) => redis.del(rateKey(scope, id));
+export const clearRateLimit = async (scope: string, id: string) =>
+  redis.del(rateKey(scope, await rateId(id)));
 
 export const clientIp = (req: Request) =>
   req.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown";
