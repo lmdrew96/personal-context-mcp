@@ -1,20 +1,13 @@
-import type { PersonalContext } from "./types";
+import type { PersonalContext, ContextSummary } from "./types";
 
 /**
  * Strip a PersonalContext down to lightweight summary form.
- * Projects → { name, summary, status } only.
+ * Facts → { label, category } only (no content, no source).
  * Relationships → { name, role } only.
  * Everything else passes through unchanged.
  */
-export const summarizeContext = (ctx: PersonalContext): PersonalContext => ({
+export const summarizeContext = (ctx: PersonalContext): ContextSummary => ({
   ...ctx,
-  projects: ctx.projects.map(({ name, summary, status }) => ({
-    name,
-    summary,
-    status,
-  })),
-  relationships: ctx.relationships.map(({ name, role }) => ({
-    name,
-    role,
-  })),
+  facts: ctx.facts.map(({ label, category }) => ({ label, category })),
+  relationships: ctx.relationships.map(({ name, role }) => ({ name, role })),
 });

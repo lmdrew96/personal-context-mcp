@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import type { PersonalContext, ClaudeIdentity, Project, Relationship } from "@/lib/types";
+import type { PersonalContext, ClaudeIdentity, Fact, Relationship } from "@/lib/types";
+import { FACT_CATEGORIES, FACT_CONFIDENCES } from "@/lib/types";
 
 const BASE_URL = "https://personal-context-mcp.vercel.app";
 
@@ -23,23 +24,20 @@ async function saveContext(token: string, ctx: PersonalContext): Promise<void> {
     }),
   });
   if (!res.ok) throw new Error("Failed to save");
+  const payload = await res.json();
+  if (payload.error) throw new Error(payload.error.message ?? "Failed to save");
 }
 
 const EMPTY: PersonalContext = {
-  identity: { name: "", pronouns: "", communicationStyle: "" },
+  user: { name: "", pronouns: "", communicationStyle: "" },
   claudeIdentities: [],
-  projects: [],
+  facts: [],
   relationships: [],
   preferences: [],
-  customInstructions: "",
 };
 
-const STATUS_OPTIONS = [
-  { value: "active", label: "Active" },
-  { value: "paused", label: "Paused" },
-  { value: "concept", label: "Concept" },
-  { value: "archived", label: "Archived" },
-] as const;
+/** Today as YYYY-MM — the default `established` for a newly added fact. */
+const thisMonth = () => new Date().toISOString().slice(0, 7);
 
 // ── styles ───────────────────────────────────────────────────────────────────
 
@@ -78,6 +76,12 @@ const s = {
     color: "rgba(247,245,250,0.35)",
     marginBottom: 2,
   },
+  sectionHint: {
+    fontSize: 12,
+    color: "rgba(247,245,250,0.28)",
+    margin: "-8px 0 0 0",
+    lineHeight: 1.5,
+  } as React.CSSProperties,
   pill: (color: string) => ({
     display: "inline-flex",
     alignItems: "center",
@@ -130,48 +134,63 @@ function Field({ label, value, onChange, placeholder, mono }: {
   );
 }
 
-function ProjectRow({ project, onChange, onRemove }: {
-  project: Project;
-  onChange: (p: Project) => void;
+function FactRow({ fact, onChange, onRemove }: {
+  fact: Fact;
+  onChange: (f: Fact) => void;
   onRemove: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const undated = !/^\d{4}(-\d{2}){0,2}$/.test(fact.established ?? "");
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "12px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        <input value={project.name} onChange={(e) => onChange({ ...project, name: e.target.value })}
-          placeholder="Name" style={{ ...s.input, width: "30%" }} />
-        <input value={project.summary} onChange={(e) => onChange({ ...project, summary: e.target.value })}
-          placeholder="Summary (1-2 sentences)" style={{ ...s.input, flex: 1 }} />
-        <select value={project.status} onChange={(e) => onChange({ ...project, status: e.target.value as Project["status"] })}
-          style={{ ...s.input, width: 110, cursor: "pointer" }}>
-          {STATUS_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
+        <input value={fact.label} onChange={(e) => onChange({ ...fact, label: e.target.value })}
+          placeholder="Label (e.g. Dialect profile)" style={{ ...s.input, flex: 1 }} />
         <button onClick={() => setExpanded(!expanded)}
           style={{ ...s.removeBtn, fontSize: 12, color: "rgba(247,245,250,0.35)" }}
-          title="Toggle details">{expanded ? "▾" : "▸"}</button>
+          title="Toggle source">{expanded ? "▾" : "▸"}</button>
         <button onClick={onRemove} style={s.removeBtn}>✕</button>
       </div>
+
+      {/*
+        TODO (Nae): lay this meta row out.
+        Three controls — category, established, confidence — currently stacked
+        because this <div> has no layout of its own. They should sit on one line.
+        Hint: the parent column already uses `display: flex` with a `gap`; this
+        row wants the same idea on the other axis. `established` is the narrow
+        one (a date), so think about which children should grow and which
+        shouldn't — `flex: 1` vs a fixed `width`.
+      */}
+      <div>
+        <select value={fact.category}
+          onChange={(e) => onChange({ ...fact, category: e.target.value as Fact["category"] })}
+          style={{ ...s.input, cursor: "pointer" }}>
+          {FACT_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <input value={fact.established ?? ""}
+          onChange={(e) => onChange({ ...fact, established: e.target.value })}
+          placeholder="YYYY-MM"
+          title="When this became true. Required — undated facts rot invisibly."
+          style={{ ...s.input, borderColor: undated ? "rgba(255,144,144,0.5)" : undefined }} />
+        <select value={fact.confidence ?? ""}
+          onChange={(e) => onChange({ ...fact, confidence: (e.target.value || undefined) as Fact["confidence"] })}
+          style={{ ...s.input, cursor: "pointer" }}>
+          <option value="">confidence…</option>
+          {FACT_CONFIDENCES.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+      </div>
+
+      <textarea value={fact.content}
+        onChange={(e) => onChange({ ...fact, content: e.target.value })}
+        placeholder="The fact itself."
+        rows={3} style={{ ...s.input, resize: "vertical", lineHeight: 1.6 }} />
+
       {expanded && (
-        <>
-          <div style={{ display: "flex", gap: 8 }}>
-            <input value={project.slug ?? ""} onChange={(e) => onChange({ ...project, slug: e.target.value || undefined })}
-              placeholder="Slug (e.g. chatos)" style={{ ...s.input, width: "25%" }} />
-            <input value={project.url ?? ""} onChange={(e) => onChange({ ...project, url: e.target.value || undefined })}
-              placeholder="URL (e.g. chatos.adhdesigns.dev)" style={{ ...s.input, flex: 1 }} />
-          </div>
-          <input value={project.currentFocus ?? ""} onChange={(e) => onChange({ ...project, currentFocus: e.target.value || undefined })}
-            placeholder="Current focus (what's being worked on now)" style={s.input} />
-          <input value={(project.stack ?? []).join(", ")}
-            onChange={(e) => onChange({ ...project, stack: e.target.value ? e.target.value.split(",").map((t) => t.trim()).filter(Boolean) : undefined })}
-            placeholder="Stack (comma-separated: Next.js, Convex, Clerk)" style={s.input} />
-          <textarea value={project.architecture ?? ""}
-            onChange={(e) => onChange({ ...project, architecture: e.target.value || undefined })}
-            placeholder="Architecture notes (deeper technical details — only injected when relevant)"
-            rows={3} style={{ ...s.input, resize: "vertical", lineHeight: 1.6 }} />
-        </>
+        <input value={fact.source ?? ""}
+          onChange={(e) => onChange({ ...fact, source: e.target.value || undefined })}
+          placeholder="Source (e.g. Praat/parselmouth analysis of own recordings)"
+          style={{ ...s.input, fontStyle: "italic" }} />
       )}
     </div>
   );
@@ -215,19 +234,19 @@ function ClaudeIdentityRow({ ci, onChange, onRemove }: {
     <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "12px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
         <input value={ci.name} onChange={(e) => onChange({ ...ci, name: e.target.value })}
-          placeholder="Name (e.g. Claudiu)" style={{ ...s.input, width: "30%" }} />
+          placeholder="Name (e.g. Coru)" style={{ ...s.input, width: "30%" }} />
         <input value={ci.role} onChange={(e) => onChange({ ...ci, role: e.target.value })}
-          placeholder="Role (e.g. Platform voice for Cha(t)os, Desktop coding companion)" style={{ ...s.input, flex: 1 }} />
+          placeholder="Role (e.g. Planning and architecture, Implementation partner)" style={{ ...s.input, flex: 1 }} />
         <button onClick={onRemove} style={s.removeBtn}>✕</button>
       </div>
       <div style={{ display: "flex", gap: 8 }}>
         <input value={ci.home} onChange={(e) => onChange({ ...ci, home: e.target.value })}
-          placeholder="Home (e.g. Cha(t)os platform)" style={{ ...s.input, flex: 1 }} />
+          placeholder="Home (e.g. claude.ai)" style={{ ...s.input, flex: 1 }} />
         <input value={ci.access} onChange={(e) => onChange({ ...ci, access: e.target.value })}
           placeholder="Access (e.g. Full pctx memory)" style={{ ...s.input, flex: 1 }} />
       </div>
       <input value={ci.blurb} onChange={(e) => onChange({ ...ci, blurb: e.target.value })}
-        placeholder="Self-description (e.g. Claudiu lives here.)" style={{ ...s.input, fontStyle: "italic" }} />
+        placeholder="Self-description (e.g. Coru lives in claude.ai.)" style={{ ...s.input, fontStyle: "italic" }} />
     </div>
   );
 }
@@ -239,6 +258,7 @@ export default function Home() {
   const [tokenInput, setTokenInput] = useState("");
   const [ctx, setCtx] = useState<PersonalContext>(EMPTY);
   const [status, setStatus] = useState<"idle" | "loading" | "saving" | "saved" | "error">("idle");
+  const [errorMsg, setErrorMsg] = useState("");
   const [newPref, setNewPref] = useState("");
   const [copied, setCopied] = useState(false);
 
@@ -248,10 +268,11 @@ export default function Home() {
     setStatus("loading");
     try {
       const data = await loadContext(t);
-      setCtx(data);
+      setCtx({ ...EMPTY, ...data });
       setToken(t);
       setStatus("idle");
     } catch {
+      setErrorMsg("Couldn't load that token — double-check it and try again.");
       setStatus("error");
     }
   }, []);
@@ -282,7 +303,8 @@ export default function Home() {
       await saveContext(token, ctx);
       setStatus("saved");
       setTimeout(() => setStatus("idle"), 2000);
-    } catch {
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : "Failed to save.");
       setStatus("error");
     }
   };
@@ -293,12 +315,15 @@ export default function Home() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const updateProject = (i: number, p: Project) =>
-    setCtx((c) => ({ ...c, projects: c.projects.map((x, j) => j === i ? p : x) }));
-  const removeProject = (i: number) =>
-    setCtx((c) => ({ ...c, projects: c.projects.filter((_, j) => j !== i) }));
-  const addProject = () =>
-    setCtx((c) => ({ ...c, projects: [...c.projects, { name: "", summary: "", status: "active" as const }] }));
+  const updateFact = (i: number, f: Fact) =>
+    setCtx((c) => ({ ...c, facts: c.facts.map((x, j) => j === i ? f : x) }));
+  const removeFact = (i: number) =>
+    setCtx((c) => ({ ...c, facts: c.facts.filter((_, j) => j !== i) }));
+  const addFact = () =>
+    setCtx((c) => ({
+      ...c,
+      facts: [...c.facts, { label: "", category: "biographical" as const, content: "", established: thisMonth() }],
+    }));
 
   const updateRel = (i: number, r: Relationship) =>
     setCtx((c) => ({ ...c, relationships: c.relationships.map((x, j) => j === i ? r : x) }));
@@ -328,7 +353,7 @@ export default function Home() {
       <main style={{ padding: "64px 32px", maxWidth: 560, margin: "0 auto" }}>
         <h1 style={{ fontSize: 26, fontWeight: 700, marginBottom: 8 }}>Personal Context MCP</h1>
         <p style={{ color: "rgba(247,245,250,0.45)", marginBottom: 40, lineHeight: 1.6 }}>
-          Inject your identity, projects, and relationships into your Claude — automatically, every time you join a Cha(t)os room.
+          The durable facts about you that no codebase or task tracker holds — served to any Claude that connects to your URL.
         </p>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 32 }}>
@@ -357,7 +382,7 @@ export default function Home() {
         </div>
 
         {status === "error" && (
-          <p style={{ color: "#ff9090", fontSize: 13 }}>Couldn&apos;t load that token — double-check it and try again.</p>
+          <p style={{ color: "#ff9090", fontSize: 13 }}>{errorMsg}</p>
         )}
       </main>
     );
@@ -372,7 +397,7 @@ export default function Home() {
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>Personal Context</h1>
           <p style={{ fontSize: 13, color: "rgba(247,245,250,0.35)", margin: 0 }}>
-            Changes auto-save when you click Save.
+            Changes save when you click Save.
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -397,20 +422,23 @@ export default function Home() {
       {status === "loading" && (
         <p style={{ color: "rgba(247,245,250,0.3)", fontSize: 13, marginBottom: 24 }}>Loading your context…</p>
       )}
+      {status === "error" && (
+        <p style={{ color: "#ff9090", fontSize: 13, marginBottom: 24 }}>{errorMsg}</p>
+      )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
-        {/* Identity */}
+        {/* About you */}
         <div style={s.section}>
-          <p style={s.sectionTitle}>Identity</p>
-          <Field label="Name" value={ctx.identity.name}
-            onChange={(v) => setCtx((c) => ({ ...c, identity: { ...c.identity, name: v } }))}
+          <p style={s.sectionTitle}>About You</p>
+          <Field label="Name" value={ctx.user.name}
+            onChange={(v) => setCtx((c) => ({ ...c, user: { ...c.user, name: v } }))}
             placeholder="e.g. Nae" />
-          <Field label="Pronouns" value={ctx.identity.pronouns ?? ""}
-            onChange={(v) => setCtx((c) => ({ ...c, identity: { ...c.identity, pronouns: v } }))}
-            placeholder="e.g. she/her" />
-          <Field label="Preferred communication style" value={ctx.identity.communicationStyle ?? ""}
-            onChange={(v) => setCtx((c) => ({ ...c, identity: { ...c.identity, communicationStyle: v } }))}
+          <Field label="Pronouns" value={ctx.user.pronouns ?? ""}
+            onChange={(v) => setCtx((c) => ({ ...c, user: { ...c.user, pronouns: v } }))}
+            placeholder="e.g. she/they" />
+          <Field label="Preferred communication style" value={ctx.user.communicationStyle ?? ""}
+            onChange={(v) => setCtx((c) => ({ ...c, user: { ...c.user, communicationStyle: v } }))}
             placeholder="e.g. direct, no fluff, explain new concepts briefly" />
         </div>
 
@@ -425,25 +453,19 @@ export default function Home() {
           <button onClick={addClaudeId} style={s.addBtn}>+ Add Claude identity</button>
         </div>
 
-        {/* Custom instructions */}
+        {/* Facts */}
         <div style={s.section}>
-          <p style={s.sectionTitle}>Custom Instructions</p>
-          <textarea value={ctx.customInstructions}
-            onChange={(e) => setCtx((c) => ({ ...c, customInstructions: e.target.value }))}
-            placeholder="Freeform instructions for your Claude — mirrors Claude Desktop memory."
-            rows={4}
-            style={{ ...s.input, resize: "vertical", lineHeight: 1.6 }} />
-        </div>
-
-        {/* Projects */}
-        <div style={s.section}>
-          <p style={s.sectionTitle}>Projects</p>
-          {ctx.projects.map((p, i) => (
-            <ProjectRow key={i} project={p}
-              onChange={(updated) => updateProject(i, updated)}
-              onRemove={() => removeProject(i)} />
+          <p style={s.sectionTitle}>Facts</p>
+          <p style={s.sectionHint}>
+            Durable things about you that aren&apos;t reconstructible from a codebase or ChaosPatch.
+            Every fact carries a date so staleness announces itself.
+          </p>
+          {ctx.facts.map((f, i) => (
+            <FactRow key={i} fact={f}
+              onChange={(updated) => updateFact(i, updated)}
+              onRemove={() => removeFact(i)} />
           ))}
-          <button onClick={addProject} style={s.addBtn}>+ Add project</button>
+          <button onClick={addFact} style={s.addBtn}>+ Add fact</button>
         </div>
 
         {/* Relationships */}
@@ -493,7 +515,8 @@ export default function Home() {
             </button>
           </div>
           <p style={{ fontSize: 11, color: "rgba(247,245,250,0.25)", marginTop: 8, margin: "8px 0 0 0" }}>
-            Tip: Add <code style={{ color: "#8CBDB9" }}>&name=Claudiu</code> to give each Claude its own identity.
+            Tip: Add <code style={{ color: "#8CBDB9" }}>&name=Coru</code> to mark that identity{" "}
+            <code style={{ color: "#8CBDB9" }}>self: true</code> in the response.
           </p>
         </div>
 

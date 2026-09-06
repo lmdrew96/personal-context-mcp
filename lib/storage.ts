@@ -2,10 +2,8 @@ import { Redis } from "@upstash/redis";
 import {
   PersonalContext,
   DEFAULT_CONTEXT,
-  Project,
-  ProjectStatus,
   Relationship,
-  LegacyProject,
+  LegacyPersonalContext,
   LegacyRelationship,
 } from "./types";
 
@@ -18,39 +16,9 @@ const key = (token: string) => `pctx:${token}`;
 
 // ── Migration helpers ────────────────────────────────────────────────────────
 
-const VALID_STATUSES: ProjectStatus[] = ["active", "paused", "concept", "archived"];
-
-/** Parse a freeform legacy status string into a structured status + currentFocus. */
-const parseStatus = (raw: string): { status: ProjectStatus; currentFocus?: string } => {
-  const lower = raw.toLowerCase();
-  for (const s of VALID_STATUSES) {
-    if (lower.startsWith(s) || lower.includes(s)) {
-      // Everything after the status keyword (strip leading punctuation/whitespace)
-      const rest = raw.replace(new RegExp(`.*?${s}`, "i"), "").replace(/^[\s—–\-:,]+/, "").trim();
-      return { status: s, currentFocus: rest || undefined };
-    }
-  }
-  return { status: "active", currentFocus: raw.trim() || undefined };
-};
-
-/** Detect whether a project object is legacy format (has `description`, no `summary`). */
-const isLegacyProject = (p: Record<string, unknown>): p is LegacyProject =>
-  typeof p.description === "string" && !("summary" in p);
-
 /** Detect whether a relationship has a long role that should be split into role + context. */
 const isLegacyRelationship = (r: Record<string, unknown>): r is LegacyRelationship =>
   typeof r.role === "string" && !("context" in r);
-
-/** Migrate a legacy project to the new schema. */
-const migrateProject = (p: LegacyProject): Project => {
-  const { status, currentFocus } = parseStatus(p.status);
-  return {
-    name: p.name,
-    summary: p.description,
-    status,
-    currentFocus,
-  };
-};
 
 /** Migrate a legacy relationship — split long roles into role + context. */
 const migrateRelationship = (r: LegacyRelationship): Relationship => {
@@ -72,17 +40,32 @@ const migrateRelationship = (r: LegacyRelationship): Relationship => {
   return { name: r.name, role };
 };
 
-/** Migrate an entire context blob if it contains legacy-format data. */
+/**
+ * Normalise a stored blob into the current schema.
+ *
+ * Pre-2.0 blobs carried `identity` (renamed to `user`), a `projects` inventory
+ * that duplicated ChaosPatch, and a single `customInstructions` string. The
+ * first is renamed, the other two are dropped — the durable content of
+ * customInstructions was migrated into `facts` by hand. Because getContext runs
+ * this on every read, the next write persists the cleaned shape.
+ */
 const migrateContext = (raw: Record<string, unknown>): PersonalContext => {
-  const ctx = raw as PersonalContext;
+  const legacy = raw as LegacyPersonalContext;
+  const { identity: _identity, projects: _projects, customInstructions: _ci, ...rest } =
+    raw as Record<string, unknown> & LegacyPersonalContext;
 
-  // Migrate projects if any are legacy format
-  if (Array.isArray(ctx.projects) && ctx.projects.length > 0 && isLegacyProject(ctx.projects[0] as Record<string, unknown>)) {
-    ctx.projects = (ctx.projects as unknown as LegacyProject[]).map(migrateProject);
-  }
+  const ctx: PersonalContext = {
+    ...DEFAULT_CONTEXT,
+    ...(rest as Partial<PersonalContext>),
+    user: (rest as Partial<PersonalContext>).user ?? legacy.identity ?? DEFAULT_CONTEXT.user,
+    claudeIdentities: (rest as Partial<PersonalContext>).claudeIdentities ?? [],
+    facts: (rest as Partial<PersonalContext>).facts ?? [],
+    relationships: (rest as Partial<PersonalContext>).relationships ?? [],
+    preferences: (rest as Partial<PersonalContext>).preferences ?? [],
+  };
 
   // Migrate relationships if any are legacy format
-  if (Array.isArray(ctx.relationships) && ctx.relationships.length > 0 && isLegacyRelationship(ctx.relationships[0] as Record<string, unknown>)) {
+  if (ctx.relationships.length > 0 && isLegacyRelationship(ctx.relationships[0] as unknown as Record<string, unknown>)) {
     ctx.relationships = (ctx.relationships as unknown as LegacyRelationship[]).map(migrateRelationship);
   }
 
