@@ -90,3 +90,8 @@ export async function patchContext(token: string, patch: Partial<PersonalContext
   await setContext(token, updated);
   return updated;
 }
+
+/** Does a context blob actually exist for this token? Guards against linking a typo. */
+export async function contextExists(token: string): Promise<boolean> {
+  return (await redis.exists(key(token))) === 1;
+}
