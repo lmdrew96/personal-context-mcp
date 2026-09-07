@@ -35,8 +35,15 @@ export type Fact = {
 };
 
 export type Relationship = {
+  /** Canonical name. This is the key — add/update/delete address people by it. */
   name: string;
   role: string;
+  /**
+   * What the user actually calls them ("NugBug", "Xay"). Recognition, not
+   * decoration: the user says the nickname and Claude has to land on the right
+   * person. NOT an addressing key — see `name`.
+   */
+  nicknames?: string[];
   /**
    * Free text ("he/him", "she/they"). Absent means UNKNOWN, not neutral —
    * the signal to ask rather than infer from the name.
@@ -90,7 +97,7 @@ export const DEFAULT_CONTEXT: PersonalContext = {
 /** Lightweight projection returned by depth='summary'. */
 export type ContextSummary = Omit<PersonalContext, "facts" | "relationships"> & {
   facts: Pick<Fact, "label" | "category">[];
-  relationships: Pick<Relationship, "name" | "role" | "pronouns" | "affiliation">[];
+  relationships: Pick<Relationship, "name" | "role" | "nicknames" | "pronouns" | "affiliation">[];
 };
 
 // ── Legacy shapes (read-side migration only) ─────────────────────────────────

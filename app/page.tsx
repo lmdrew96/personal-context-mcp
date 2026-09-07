@@ -231,13 +231,36 @@ function RelRow({ rel, onChange, onRemove }: {
   const [expanded, setExpanded] = useState(false);
   const hasContext = !!(rel.context?.trim());
   const misdated = !!rel.established && !/^\d{4}(-\d{2}){0,2}$/.test(rel.established);
+
+  /**
+   * Nicknames are stored as an array but edited as one comma-separated string.
+   * The draft only exists while the field has focus — without it, round-tripping
+   * through split/join eats the comma the moment you type it. Clearing on blur
+   * also means a row recycled by index after a delete can't inherit a stale
+   * draft, since you have to leave the field to click anything else.
+   */
+  const [nickDraft, setNickDraft] = useState<string | null>(null);
+  const shownNicknames = nickDraft ?? (rel.nicknames ?? []).join(", ");
+  const editNicknames = (raw: string) => {
+    setNickDraft(raw);
+    const parsed = raw.split(",").map((n) => n.trim()).filter(Boolean);
+    onChange({ ...rel, nicknames: parsed.length ? parsed : undefined });
+  };
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "12px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
         <input value={rel.name} onChange={(e) => onChange({ ...rel, name: e.target.value })}
-          placeholder="Name" style={{ ...s.input, width: "35%" }} />
+          placeholder="Name"
+          title="The canonical name. This is how MCP tools address this person."
+          style={{ ...s.input, width: "28%" }} />
+        <input value={shownNicknames}
+          onChange={(e) => editNicknames(e.target.value)}
+          onBlur={() => setNickDraft(null)}
+          placeholder="aka (comma-sep)"
+          title="What you actually call them. Comma-separated."
+          style={{ ...s.input, width: "24%" }} />
         <input value={rel.role} onChange={(e) => onChange({ ...rel, role: e.target.value })}
-          placeholder="Role (e.g. Partner, Co-leader)" style={{ ...s.input, flex: 1 }} />
+          placeholder="Role (e.g. Partner, Co-leader)" style={{ ...s.input, flex: 1, minWidth: 0 }} />
         <button onClick={() => setExpanded(!expanded)}
           style={{ ...s.removeBtn, fontSize: 12, color: hasContext ? "#8CBDB9" : "rgba(247,245,250,0.35)" }}
           title="Toggle context">{expanded ? "▾" : "▸"}</button>
@@ -718,6 +741,8 @@ export default function Home() {
             relationship — not everyone you&apos;ve emailed. Someone who is evidence in a situation
             rather than a connection belongs in facts. Leave pronouns blank when you don&apos;t
             know them; blank means ask, and a guess from the name is how it goes wrong.
+            Nicknames go in their own field — not inside the name, which is the key everything
+            else looks people up by.
           </p>
           {ctx.relationships.map((r, i) => (
             <RelRow key={i} rel={r}

@@ -14,12 +14,41 @@ import {
 /** "2026", "2026-08" or "2026-08-14". */
 const ESTABLISHED_RE = /^\d{4}(-\d{2}){0,2}$/;
 
+/** Trim, drop blanks, de-duplicate case-insensitively. Empty list → undefined. */
+const cleanNicknames = (raw: unknown): string[] | undefined => {
+  if (!Array.isArray(raw)) return undefined;
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const n of raw) {
+    const v = String(n).trim();
+    if (!v || seen.has(v.toLowerCase())) continue;
+    seen.add(v.toLowerCase());
+    out.push(v);
+  }
+  return out.length ? out : undefined;
+};
+
+/**
+ * Relationships are addressed by `name`, never by nickname — `name` is also the
+ * merge key, and matching nicknames would let two people collide on one lookup.
+ * But a caller that just read the context WILL try the nickname, so point it at
+ * the canonical name instead of a bare "not found".
+ */
+const notFoundMessage = (rels: Relationship[], wanted: string): string => {
+  const byNick = rels.find((r) =>
+    r.nicknames?.some((n) => n.toLowerCase() === wanted.toLowerCase())
+  );
+  return byNick
+    ? `No relationship named "${wanted}" — that's a nickname for "${byNick.name}". Address relationships by their \`name\`.`
+    : `Relationship "${wanted}" not found.`;
+};
+
 // MCP tool definitions
 const TOOLS = [
   {
     name: "pctx_get_context",
     description:
-      "Retrieve the personal context: the user, registered Claude identities, dated facts, and relationships. Use depth='summary' for a lightweight index (fact labels+categories; relationship names, roles, pronouns and affiliations). Use depth='full' (default) for everything including fact content, sources and relationship context. A relationship with no `pronouns` means they are UNKNOWN — ask, do not infer them from the name. In the response, `claudeIdentities` is a flat array and the identity making the request is marked `self: true`.",
+      "Retrieve the personal context: the user, registered Claude identities, dated facts, and relationships. Use depth='summary' for a lightweight index (fact labels+categories; relationship names, nicknames, roles, pronouns and affiliations). Use depth='full' (default) for everything including fact content, sources and relationship context. A relationship with no `pronouns` means they are UNKNOWN — ask, do not infer them from the name. `nicknames` are for RESOLVING who the user meant; relationships are still addressed by `name` in every other tool. In the response, `claudeIdentities` is a flat array and the identity making the request is marked `self: true`.",
     inputSchema: {
       type: "object",
       properties: {
@@ -84,6 +113,7 @@ const TOOLS = [
             properties: {
               name: { type: "string" },
               role: { type: "string" },
+              nicknames: { type: "array", items: { type: "string" } },
               pronouns: { type: "string" },
               affiliation: { type: "string" },
               established: { type: "string", description: "'YYYY', 'YYYY-MM' or 'YYYY-MM-DD'." },
@@ -155,6 +185,11 @@ const TOOLS = [
       properties: {
         name: { type: "string", description: "Person's name." },
         role: { type: "string", description: "Short role title (e.g. 'Partner', 'Close friend', 'LING 202 professor')." },
+        nicknames: {
+          type: "array",
+          items: { type: "string" },
+          description: "What the user actually calls them (e.g. ['NugBug', 'Nug']). Put these here rather than inside `name` — `name` is the key other tools address the person by.",
+        },
         pronouns: { type: "string", description: "Free text (e.g. 'he/him', 'she/they'). Omit if unknown — never guess from the name." },
         affiliation: { type: "string", description: "Institution or org (e.g. 'UD, Dept. of Linguistics & Cognitive Science')." },
         established: { type: "string", description: "When the relationship started, as 'YYYY', 'YYYY-MM' or 'YYYY-MM-DD'. Professional connections rot on a semester clock — date them." },
@@ -169,8 +204,13 @@ const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        name: { type: "string", description: "The name of the person to update." },
+        name: { type: "string", description: "The person's canonical `name` — not a nickname." },
         role: { type: "string", description: "Short role title." },
+        nicknames: {
+          type: "array",
+          items: { type: "string" },
+          description: "REPLACES the existing list wholesale. Pass [] to clear.",
+        },
         pronouns: { type: "string", description: "Free text (e.g. 'he/him', 'she/they')." },
         affiliation: { type: "string", description: "Institution or org." },
         established: { type: "string", description: "'YYYY', 'YYYY-MM' or 'YYYY-MM-DD'." },
@@ -408,6 +448,8 @@ export async function POST(req: Request) {
         name: args.name as string,
         role: args.role as string,
       };
+      const nicknames = cleanNicknames(args.nicknames);
+      if (nicknames) rel.nicknames = nicknames;
       if (args.pronouns) rel.pronouns = args.pronouns as string;
       if (args.affiliation) rel.affiliation = args.affiliation as string;
       if (args.established) rel.established = args.established as string;
@@ -422,13 +464,14 @@ export async function POST(req: Request) {
     if (name === "pctx_update_relationship") {
       const ctx = await getContext(token);
       const idx = ctx.relationships.findIndex((r) => r.name === args.name);
-      if (idx === -1) return err(id, -32602, `Relationship "${args.name}" not found.`);
+      if (idx === -1) return err(id, -32602, notFoundMessage(ctx.relationships, args.name as string));
       if (args.established !== undefined && args.established !== "" && !ESTABLISHED_RE.test(args.established as string)) {
         return err(id, -32602, "`established` must be 'YYYY', 'YYYY-MM' or 'YYYY-MM-DD'.");
       }
       const rel = ctx.relationships[idx];
       if (args.role !== undefined) rel.role = args.role as string;
-      // Passing "" clears an optional field rather than storing an empty string.
+      // Passing "" (or [] for nicknames) clears an optional field rather than storing it empty.
+      if (args.nicknames !== undefined) rel.nicknames = cleanNicknames(args.nicknames);
       if (args.pronouns !== undefined) rel.pronouns = (args.pronouns as string) || undefined;
       if (args.affiliation !== undefined) rel.affiliation = (args.affiliation as string) || undefined;
       if (args.established !== undefined) rel.established = (args.established as string) || undefined;
@@ -442,7 +485,7 @@ export async function POST(req: Request) {
     if (name === "pctx_delete_relationship") {
       const ctx = await getContext(token);
       const idx = ctx.relationships.findIndex((r) => r.name === args.name);
-      if (idx === -1) return err(id, -32602, `Relationship "${args.name}" not found.`);
+      if (idx === -1) return err(id, -32602, notFoundMessage(ctx.relationships, args.name as string));
       ctx.relationships.splice(idx, 1);
       await patchContext(token, { relationships: ctx.relationships });
       return ok(id, {
