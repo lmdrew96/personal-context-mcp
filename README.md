@@ -1,10 +1,10 @@
 # Personal Context MCP
 
-A lightweight MCP (Model Context Protocol) server that stores and serves user context — who you are, dated facts about you, relationships, preferences, and the Claude identities you work with — so Claude instances across multiple apps share awareness of who you are.
+A lightweight MCP (Model Context Protocol) server that stores and serves user context — who you are, dated facts about you, relationships, and the Claude identities you work with — so Claude instances across multiple apps share awareness of who you are.
 
 ## What It Does
 
-Personal Context MCP gives any Claude instance persistent knowledge about you. Instead of re-explaining your background, preferences, and relationships every session, you point Claude at your PCTX URL and it loads everything automatically.
+Personal Context MCP gives any Claude instance persistent knowledge about you. Instead of re-explaining your background, history, and relationships every session, you point Claude at your PCTX URL and it loads everything automatically.
 
 It deliberately stores only what nothing else holds. Project state lives in [ChaosPatch](https://chaospatch.adhdesigns.dev), which is authoritative and stays current because it's used daily; a second copy here would rot, and stale context is worse than absent context because it gets injected and believed.
 

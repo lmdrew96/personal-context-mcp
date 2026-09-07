@@ -59,7 +59,6 @@ export type PersonalContext = {
   claudeIdentities: ClaudeIdentity[];
   facts: Fact[];
   relationships: Relationship[];
-  preferences: string[];
 };
 
 export const FACT_CATEGORIES: FactCategory[] = [
@@ -86,7 +85,6 @@ export const DEFAULT_CONTEXT: PersonalContext = {
   claudeIdentities: [],
   facts: [],
   relationships: [],
-  preferences: [],
 };
 
 /** Lightweight projection returned by depth='summary'. */
@@ -97,12 +95,14 @@ export type ContextSummary = Omit<PersonalContext, "facts" | "relationships"> & 
 
 // ── Legacy shapes (read-side migration only) ─────────────────────────────────
 
-/** Pre-2.0 blob: `identity` instead of `user`, plus a project inventory and a
- *  single customInstructions string. All three are stripped on read. */
+/** Pre-3.0 blob: `identity` instead of `user`, a project inventory, a single
+ *  customInstructions string, and a `preferences` list. `identity` is renamed
+ *  on read; the rest are stripped. */
 export type LegacyPersonalContext = {
   identity?: PersonalContext["user"];
   projects?: unknown[];
   customInstructions?: string;
+  preferences?: string[];
 };
 
 export type LegacyRelationship = {

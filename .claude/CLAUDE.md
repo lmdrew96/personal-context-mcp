@@ -4,7 +4,7 @@
 
 ## Project Overview
 
-Personal Context MCP (PCTX) is a lightweight MCP server that stores and serves user context — who Nae is, dated facts about her, relationships, preferences, and the Claude identities she works with. It's the persistent memory layer that gives Claude instances across the Chaos ecosystem awareness of who she is.
+Personal Context MCP (PCTX) is a lightweight MCP server that stores and serves user context — who Nae is, dated facts about her, relationships, and the Claude identities she works with. It's the persistent memory layer that gives Claude instances across the Chaos ecosystem awareness of who she is.
 
 It deliberately does NOT store project state — ChaosPatch is authoritative for that. A second copy here has no update pressure and rots, and stale context is worse than absent context because it gets injected and believed.
 
@@ -34,7 +34,7 @@ This is intentionally a tiny project — no ORM, no auth library, no UI framewor
 ### How It Works
 1. User owns a PCTX URL (e.g., `personal-context-mcp.vercel.app/mcp`)
 2. Any Claude instance can connect to it as an MCP server
-3. Claude calls `pctx_get_context` to load the user, facts, relationships and preferences
+3. Claude calls `pctx_get_context` to load the user, facts, relationships and Claude identities
 4. Context is formatted into system prompt prefix for personalization
 
 ### Data Model (Upstash Redis)
@@ -44,8 +44,7 @@ Stored as JSON per user key. Structure:
   user: { name, pronouns, communicationStyle },
   claudeIdentities: [{ name, role, home, access, blurb }],
   facts: [{ label, category, content, source?, established, confidence? }],
-  relationships: [{ name, role, pronouns?, affiliation?, established?, context? }],
-  preferences: string[]
+  relationships: [{ name, role, pronouns?, affiliation?, established?, context? }]
 }
 ```
 

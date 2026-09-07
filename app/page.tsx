@@ -20,8 +20,8 @@ type LinkPlan = {
   accountIsEmpty: boolean;
   conflicts: Conflict[];
   additions: {
-    fromAccount: { facts: string[]; relationships: string[]; claudeIdentities: string[]; preferences: number };
-    fromToken: { facts: string[]; relationships: string[]; claudeIdentities: string[]; preferences: number };
+    fromAccount: { facts: string[]; relationships: string[]; claudeIdentities: string[] };
+    fromToken: { facts: string[]; relationships: string[]; claudeIdentities: string[] };
   };
 };
 
@@ -63,7 +63,6 @@ const EMPTY: PersonalContext = {
   claudeIdentities: [],
   facts: [],
   relationships: [],
-  preferences: [],
 };
 
 /** Today as YYYY-MM — the default `established` for a newly added fact. */
@@ -425,7 +424,7 @@ function LinkPanel({ onLinked }: { onLinked: (token: string, ctx: PersonalContex
   }
 
   const totalAdds = (a: LinkPlan["additions"]["fromAccount"]) =>
-    a.facts.length + a.relationships.length + a.claudeIdentities.length + a.preferences;
+    a.facts.length + a.relationships.length + a.claudeIdentities.length;
 
   return (
     <div style={{ ...s.section, gap: 12 }}>
@@ -531,7 +530,6 @@ export default function Home() {
   const [loaded, setLoaded] = useState(false);
   const [status, setStatus] = useState<"idle" | "loading" | "saving" | "saved" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
-  const [newPref, setNewPref] = useState("");
   const [copied, setCopied] = useState(false);
 
   const token = account?.contextToken ?? "";
@@ -621,14 +619,6 @@ export default function Home() {
     setCtx((c) => ({ ...c, claudeIdentities: (c.claudeIdentities ?? []).filter((_, j) => j !== i) }));
   const addClaudeId = () =>
     setCtx((c) => ({ ...c, claudeIdentities: [...(c.claudeIdentities ?? []), { name: "", role: "", home: "", access: "", blurb: "" }] }));
-
-  const addPref = () => {
-    if (!newPref.trim()) return;
-    setCtx((c) => ({ ...c, preferences: [...c.preferences, newPref.trim()] }));
-    setNewPref("");
-  };
-  const removePref = (i: number) =>
-    setCtx((c) => ({ ...c, preferences: c.preferences.filter((_, j) => j !== i) }));
 
   if (!booted) {
     return (
@@ -735,29 +725,6 @@ export default function Home() {
               onRemove={() => removeRel(i)} />
           ))}
           <button onClick={addRel} style={s.addBtn}>+ Add person</button>
-        </div>
-
-        {/* Preferences */}
-        <div style={s.section}>
-          <p style={s.sectionTitle}>Preferences for Claude</p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {ctx.preferences.map((pref, i) => (
-              <span key={i} style={s.pill("#88739E")}>
-                {pref}
-                <button onClick={() => removePref(i)} style={s.removeBtn}>✕</button>
-              </span>
-            ))}
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <input value={newPref} onChange={(e) => setNewPref(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && addPref()}
-              placeholder="e.g. Always use TypeScript, prefer concise responses"
-              style={{ ...s.input, flex: 1 }} />
-            <button onClick={addPref} style={{
-              background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: 8, color: "rgba(247,245,250,0.6)", cursor: "pointer", fontSize: 13, padding: "9px 14px",
-            }}>Add</button>
-          </div>
         </div>
 
         {/* MCP URL */}

@@ -43,16 +43,22 @@ const migrateRelationship = (r: LegacyRelationship): Relationship => {
 /**
  * Normalise a stored blob into the current schema.
  *
- * Pre-2.0 blobs carried `identity` (renamed to `user`), a `projects` inventory
- * that duplicated ChaosPatch, and a single `customInstructions` string. The
- * first is renamed, the other two are dropped — the durable content of
+ * Legacy blobs carried `identity` (renamed to `user`), a `projects` inventory
+ * that duplicated ChaosPatch, a single `customInstructions` string, and a
+ * `preferences` list that restated the claude.ai Settings instructions. The
+ * first is renamed, the rest are dropped — the durable content of
  * customInstructions was migrated into `facts` by hand. Because getContext runs
  * this on every read, the next write persists the cleaned shape.
  */
 const migrateContext = (raw: Record<string, unknown>): PersonalContext => {
   const legacy = raw as LegacyPersonalContext;
-  const { identity: _identity, projects: _projects, customInstructions: _ci, ...rest } =
-    raw as Record<string, unknown> & LegacyPersonalContext;
+  const {
+    identity: _identity,
+    projects: _projects,
+    customInstructions: _ci,
+    preferences: _preferences,
+    ...rest
+  } = raw as Record<string, unknown> & LegacyPersonalContext;
 
   const ctx: PersonalContext = {
     ...DEFAULT_CONTEXT,
@@ -61,7 +67,6 @@ const migrateContext = (raw: Record<string, unknown>): PersonalContext => {
     claudeIdentities: (rest as Partial<PersonalContext>).claudeIdentities ?? [],
     facts: (rest as Partial<PersonalContext>).facts ?? [],
     relationships: (rest as Partial<PersonalContext>).relationships ?? [],
-    preferences: (rest as Partial<PersonalContext>).preferences ?? [],
   };
 
   // Migrate relationships if any are legacy format

@@ -36,7 +36,7 @@ const TOOLS = [
   {
     name: "pctx_update_context",
     description:
-      "Update top-level fields of the personal context (user, claudeIdentities, facts, relationships, preferences). Each field you pass REPLACES the stored value wholesale — for single-item edits prefer the add/update/delete tools.",
+      "Update top-level fields of the personal context (user, claudeIdentities, facts, relationships). Each field you pass REPLACES the stored value wholesale — for single-item edits prefer the add/update/delete tools.",
     inputSchema: {
       type: "object",
       properties: {
@@ -91,7 +91,6 @@ const TOOLS = [
             },
           },
         },
-        preferences: { type: "array", items: { type: "string" } },
       },
     },
   },
@@ -319,7 +318,6 @@ export async function POST(req: Request) {
       const patch: Partial<PersonalContext> = {};
       if (args.user) patch.user = args.user as PersonalContext["user"];
       if (args.claudeIdentities) patch.claudeIdentities = args.claudeIdentities as PersonalContext["claudeIdentities"];
-      if (args.preferences) patch.preferences = args.preferences as string[];
       if (args.relationships) {
         const rels = args.relationships as Relationship[];
         const misdated = rels.find((r) => r.established && !ESTABLISHED_RE.test(r.established));

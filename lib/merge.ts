@@ -27,8 +27,8 @@ export type LinkPlan = {
   conflicts: Conflict[];
   /** Counts of items that merge with no ambiguity. */
   additions: {
-    fromAccount: { facts: string[]; relationships: string[]; claudeIdentities: string[]; preferences: number };
-    fromToken: { facts: string[]; relationships: string[]; claudeIdentities: string[]; preferences: number };
+    fromAccount: { facts: string[]; relationships: string[]; claudeIdentities: string[] };
+    fromToken: { facts: string[]; relationships: string[]; claudeIdentities: string[] };
   };
 };
 
@@ -39,8 +39,7 @@ export const isEmptyContext = (c: PersonalContext): boolean =>
   !c.user?.name?.trim() &&
   (c.facts?.length ?? 0) === 0 &&
   (c.relationships?.length ?? 0) === 0 &&
-  (c.claudeIdentities?.length ?? 0) === 0 &&
-  (c.preferences?.length ?? 0) === 0;
+  (c.claudeIdentities?.length ?? 0) === 0;
 
 type Keyed<T> = { key: string; item: T };
 const index = <T>(items: T[] | undefined, keyOf: (t: T) => string): Map<string, Keyed<T>> => {
@@ -57,8 +56,8 @@ const idKey = (c: ClaudeIdentity) => c.name;
 export const planLink = (account: PersonalContext, token: PersonalContext): LinkPlan => {
   const conflicts: Conflict[] = [];
   const additions: LinkPlan["additions"] = {
-    fromAccount: { facts: [], relationships: [], claudeIdentities: [], preferences: 0 },
-    fromToken: { facts: [], relationships: [], claudeIdentities: [], preferences: 0 },
+    fromAccount: { facts: [], relationships: [], claudeIdentities: [] },
+    fromToken: { facts: [], relationships: [], claudeIdentities: [] },
   };
 
   const collections = [
@@ -77,12 +76,6 @@ export const planLink = (account: PersonalContext, token: PersonalContext): Link
       if (!a.has(k)) additions.fromToken[name].push(key);
     }
   }
-
-  // Preferences are plain strings — a union can't lose anything, so never a conflict.
-  const accPrefs = new Set((account.preferences ?? []).map(norm));
-  const tokPrefs = new Set((token.preferences ?? []).map(norm));
-  additions.fromAccount.preferences = [...accPrefs].filter((p) => !tokPrefs.has(p)).length;
-  additions.fromToken.preferences = [...tokPrefs].filter((p) => !accPrefs.has(p)).length;
 
   const accountHasUser = !!account.user?.name?.trim();
   const tokenHasUser = !!token.user?.name?.trim();
@@ -127,12 +120,6 @@ export const applyLink = (
     return out;
   };
 
-  const prefs: string[] = [...(token.preferences ?? [])];
-  const seen = new Set(prefs.map(norm));
-  for (const p of account.preferences ?? []) {
-    if (!seen.has(norm(p))) { prefs.push(p); seen.add(norm(p)); }
-  }
-
   const accountHasUser = !!account.user?.name?.trim();
   const tokenHasUser = !!token.user?.name?.trim();
   const user =
@@ -147,6 +134,5 @@ export const applyLink = (
     claudeIdentities: pick("claudeIdentities", account.claudeIdentities, token.claudeIdentities, idKey),
     facts: pick("facts", account.facts, token.facts, factKey),
     relationships: pick("relationships", account.relationships, token.relationships, relKey),
-    preferences: prefs,
   };
 };
