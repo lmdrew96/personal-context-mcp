@@ -76,6 +76,16 @@ const thisMonth = () => new Date().toISOString().slice(0, 7);
  * boxes — but every one of them still carries its text title, so the colour is
  * never the only thing carrying the meaning.
  */
+/**
+ * Editor shell width. At least 60vw on anything desktop-sized, floored at 680px
+ * so it doesn't collapse on a narrow laptop, and capped at 92vw so it never
+ * runs into the window edge on a phone.
+ *
+ *   1200px viewport -> 720px (60vw)   1920px -> 1152px (60vw)
+ *    1000px         -> 680px (68vw)    600px ->  552px (92vw)
+ */
+const SHELL = "min(92vw, max(680px, 60vw))";
+
 const ACCENT = {
   user: "var(--marine)",
   identities: "var(--plum-lift)",
@@ -127,6 +137,9 @@ const s = {
     color: "var(--text-2)",
     margin: "-8px 0 0 0",
     lineHeight: 1.5,
+    /* Reading text, not an input — capped so widening the shell doesn't
+       stretch it into an unreadable single line. */
+    maxWidth: "72ch",
   } as React.CSSProperties,
   removeBtn: {
     background: "none",
@@ -710,7 +723,7 @@ export default function Home() {
       >
         <div
           style={{
-            maxWidth: 680,
+            width: SHELL,
             margin: "0 auto",
             padding: "14px 32px",
             display: "flex",
@@ -782,7 +795,7 @@ export default function Home() {
         </div>
       </header>
 
-      <main style={{ padding: "28px 32px 64px", maxWidth: 680, margin: "0 auto" }}>
+      <main style={{ padding: "28px 32px 64px", width: SHELL, margin: "0 auto" }}>
         {status === "loading" && (
           <p style={{ color: "var(--text-2)", fontSize: 14, marginBottom: 24 }}>
             Loading your context…
