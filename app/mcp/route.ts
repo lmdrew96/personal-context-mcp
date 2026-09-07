@@ -2,6 +2,7 @@ import { getContext, patchContext } from "@/lib/storage";
 import { summarizeContext } from "@/lib/context-utils";
 import {
   PersonalContext,
+  ClaudeIdentity,
   AnnotatedClaudeIdentity,
   Fact,
   FactCategory,
@@ -13,6 +14,40 @@ import {
 
 /** "2026", "2026-08" or "2026-08-14". */
 const ESTABLISHED_RE = /^\d{4}(-\d{2}){0,2}$/;
+
+/**
+ * Flatten claudeIdentities into the shape every read path returns: the caller
+ * marked `self: true`, and an unregistered caller surfaced rather than silently
+ * dropped.
+ *
+ * `self` is a per-request view concern — it depends on who asked, not on what's
+ * stored — so it is applied here and never reaches lib/storage.ts. Every tool
+ * that returns a full context body goes through this, so the read paths can't
+ * drift into different shapes again.
+ */
+const annotateIdentities = (
+  identities: ClaudeIdentity[] | undefined,
+  callerName: string | null
+): AnnotatedClaudeIdentity[] => {
+  const out: AnnotatedClaudeIdentity[] = (identities ?? []).map((ci) =>
+    callerName && ci.name.toLowerCase() === callerName.toLowerCase()
+      ? { ...ci, self: true }
+      : ci
+  );
+
+  if (callerName && !out.some((ci) => ci.self)) {
+    out.push({
+      name: callerName,
+      role: "unregistered",
+      home: "unknown",
+      access: "unknown",
+      blurb: "Not yet registered — call pctx_add_claude_identity to introduce yourself.",
+      self: true,
+    });
+  }
+
+  return out;
+};
 
 /** Trim, drop blanks, de-duplicate case-insensitively. Empty list → undefined. */
 const cleanNicknames = (raw: unknown): string[] | undefined => {
@@ -65,7 +100,7 @@ const TOOLS = [
   {
     name: "pctx_update_context",
     description:
-      "Update top-level fields of the personal context (user, claudeIdentities, facts, relationships). Each field you pass REPLACES the stored value wholesale — for single-item edits prefer the add/update/delete tools.",
+      "Update top-level fields of the personal context (user, claudeIdentities, facts, relationships). Each field you pass REPLACES the stored value wholesale — for single-item edits prefer the add/update/delete tools. The context it returns is the same shape pctx_get_context returns, `self: true` included; that flag is a per-request view marker and is stripped if you pass it back.",
     inputSchema: {
       type: "object",
       properties: {
@@ -330,34 +365,31 @@ export async function POST(req: Request) {
       const depth = (args.depth as string) ?? "full";
       const ctx = depth === "summary" ? summarizeContext(raw) : raw;
 
-      // One name, one shape: a flat claudeIdentities array with the caller marked.
-      const identities: AnnotatedClaudeIdentity[] = (ctx.claudeIdentities ?? []).map((ci) =>
-        callerName && ci.name.toLowerCase() === callerName.toLowerCase()
-          ? { ...ci, self: true }
-          : ci
-      );
-
-      // Caller identified itself but isn't registered — surface it rather than silently dropping it.
-      if (callerName && !identities.some((ci) => ci.self)) {
-        identities.push({
-          name: callerName,
-          role: "unregistered",
-          home: "unknown",
-          access: "unknown",
-          blurb: "Not yet registered — call pctx_add_claude_identity to introduce yourself.",
-          self: true,
-        });
-      }
-
       return ok(id, {
-        content: [{ type: "text", text: JSON.stringify({ ...ctx, claudeIdentities: identities }, null, 2) }],
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(
+              { ...ctx, claudeIdentities: annotateIdentities(ctx.claudeIdentities, callerName) },
+              null,
+              2
+            ),
+          },
+        ],
       });
     }
 
     if (name === "pctx_update_context") {
       const patch: Partial<PersonalContext> = {};
       if (args.user) patch.user = args.user as PersonalContext["user"];
-      if (args.claudeIdentities) patch.claudeIdentities = args.claudeIdentities as PersonalContext["claudeIdentities"];
+      if (args.claudeIdentities) {
+        // `self` is a view flag this tool now emits on its OWN response. Strip it
+        // on the way in so a caller that round-trips that response back can't
+        // persist a per-request marker into the stored blob.
+        patch.claudeIdentities = (args.claudeIdentities as AnnotatedClaudeIdentity[]).map(
+          ({ self: _self, ...ci }) => ci
+        );
+      }
       if (args.relationships) {
         const rels = args.relationships as Relationship[];
         const misdated = rels.find((r) => r.established && !ESTABLISHED_RE.test(r.established));
@@ -376,7 +408,16 @@ export async function POST(req: Request) {
       }
       const updated = await patchContext(token, patch);
       return ok(id, {
-        content: [{ type: "text", text: `Context updated.\n${JSON.stringify(updated, null, 2)}` }],
+        content: [
+          {
+            type: "text",
+            text: `Context updated.\n${JSON.stringify(
+              { ...updated, claudeIdentities: annotateIdentities(updated.claudeIdentities, callerName) },
+              null,
+              2
+            )}`,
+          },
+        ],
       });
     }
 
