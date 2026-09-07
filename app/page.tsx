@@ -70,78 +70,98 @@ const thisMonth = () => new Date().toISOString().slice(0, 7);
 
 // ── styles ───────────────────────────────────────────────────────────────────
 
+/**
+ * Section accent colours. Each section gets a rule in its own colour so the
+ * five cards are tellable apart at a glance instead of being five identical
+ * boxes — but every one of them still carries its text title, so the colour is
+ * never the only thing carrying the meaning.
+ */
+const ACCENT = {
+  user: "var(--marine)",
+  identities: "var(--plum-lift)",
+  facts: "var(--teal)",
+  relationships: "var(--tan)",
+  link: "var(--text-3)",
+} as const;
+
 const s = {
   input: {
-    background: "rgba(255,255,255,0.05)",
-    border: "1px solid rgba(247,245,250,0.1)",
-    borderRadius: 8,
-    color: "#f7f5fa",
+    background: "var(--well)",
+    border: "1px solid var(--line)",
+    borderRadius: "var(--radius)",
+    color: "var(--text)",
     fontSize: 14,
+    fontFamily: "inherit",
     padding: "9px 12px",
-    outline: "none",
     width: "100%",
-    boxSizing: "border-box",
+    transition: "border-color 120ms ease, background 120ms ease",
   } as React.CSSProperties,
   label: {
-    fontSize: 12,
-    color: "rgba(247,245,250,0.4)",
-    marginBottom: 4,
+    fontSize: 13,
+    color: "var(--text-2)",
+    marginBottom: 5,
     display: "block",
   } as React.CSSProperties,
-  section: {
-    background: "rgba(255,255,255,0.03)",
-    border: "1px solid rgba(255,255,255,0.07)",
-    borderRadius: 12,
-    padding: "20px 20px",
-    display: "flex",
-    flexDirection: "column",
-    gap: 14,
-  } as React.CSSProperties,
+  section: (accent: string = ACCENT.user) =>
+    ({
+      background: "var(--card)",
+      border: "1px solid var(--line-soft)",
+      borderLeft: `3px solid ${accent}`,
+      borderRadius: "var(--radius-lg)",
+      padding: "18px 20px 20px",
+      display: "flex",
+      flexDirection: "column",
+      gap: 14,
+    }) as React.CSSProperties,
   sectionTitle: {
-    fontSize: 11,
+    fontFamily: "var(--font-display), system-ui, sans-serif",
+    fontSize: 13,
     fontWeight: 700,
     textTransform: "uppercase" as const,
-    letterSpacing: "0.1em",
-    color: "rgba(247,245,250,0.35)",
-    marginBottom: 2,
-  },
+    letterSpacing: "0.12em",
+    color: "var(--text)",
+    margin: "0 0 2px",
+  } as React.CSSProperties,
   sectionHint: {
-    fontSize: 12,
-    color: "rgba(247,245,250,0.28)",
+    fontSize: 13,
+    color: "var(--text-2)",
     margin: "-8px 0 0 0",
     lineHeight: 1.5,
   } as React.CSSProperties,
-  pill: (color: string) => ({
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 6,
-    background: `${color}15`,
-    border: `1px solid ${color}30`,
-    borderRadius: 20,
-    padding: "4px 10px",
-    fontSize: 13,
-    color,
-  } as React.CSSProperties),
   removeBtn: {
     background: "none",
     border: "none",
-    color: "rgba(247,245,250,0.25)",
+    color: "var(--text-2)",
     cursor: "pointer",
-    fontSize: 14,
+    fontSize: 15,
     lineHeight: 1,
-    padding: 0,
+    padding: "4px 6px",
+    borderRadius: 6,
   } as React.CSSProperties,
   addBtn: {
-    background: "rgba(255,255,255,0.05)",
-    border: "1px dashed rgba(255,255,255,0.12)",
-    borderRadius: 8,
-    color: "rgba(247,245,250,0.4)",
+    background: "transparent",
+    border: "1px dashed var(--line)",
+    borderRadius: "var(--radius)",
+    color: "var(--text-2)",
     cursor: "pointer",
-    fontSize: 13,
-    padding: "8px 12px",
+    fontSize: 14,
+    padding: "10px 12px",
     width: "100%",
     textAlign: "left" as const,
-  },
+    fontFamily: "inherit",
+  } as React.CSSProperties,
+  ghostBtn: {
+    background: "transparent",
+    border: "1px solid var(--line)",
+    borderRadius: "var(--radius)",
+    color: "var(--marine)",
+    cursor: "pointer",
+    fontSize: 13,
+    fontWeight: 600,
+    padding: "8px 14px",
+    fontFamily: "inherit",
+    whiteSpace: "nowrap" as const,
+  } as React.CSSProperties,
 };
 
 // ── sub-components ────────────────────────────────────────────────────────────
@@ -172,12 +192,12 @@ function FactRow({ fact, onChange, onRemove }: {
   const undated = !/^\d{4}(-\d{2}){0,2}$/.test(fact.established ?? "");
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "12px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "12px 0", borderBottom: "1px solid var(--line-soft)" }}>
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
         <input value={fact.label} onChange={(e) => onChange({ ...fact, label: e.target.value })}
           placeholder="Label (e.g. Dialect profile)" style={{ ...s.input, flex: 1 }} />
         <button onClick={() => setExpanded(!expanded)}
-          style={{ ...s.removeBtn, fontSize: 12, color: "rgba(247,245,250,0.35)" }}
+          style={{ ...s.removeBtn, fontSize: 12, color: "var(--text-2)" }}
           title="Toggle source">{expanded ? "▾" : "▸"}</button>
         <button onClick={onRemove} style={s.removeBtn}>✕</button>
       </div>
@@ -198,7 +218,7 @@ function FactRow({ fact, onChange, onRemove }: {
             width: 104,
             flex: "0 0 auto",
             fontFamily: "monospace",
-            borderColor: undated ? "rgba(255,144,144,0.5)" : undefined,
+            borderColor: undated ? "var(--danger)" : undefined,
           }} />
         <select value={fact.confidence ?? ""}
           onChange={(e) => onChange({ ...fact, confidence: (e.target.value || undefined) as Fact["confidence"] })}
@@ -247,7 +267,7 @@ function RelRow({ rel, onChange, onRemove }: {
     onChange({ ...rel, nicknames: parsed.length ? parsed : undefined });
   };
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "12px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "12px 0", borderBottom: "1px solid var(--line-soft)" }}>
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
         <input value={rel.name} onChange={(e) => onChange({ ...rel, name: e.target.value })}
           placeholder="Name"
@@ -262,7 +282,7 @@ function RelRow({ rel, onChange, onRemove }: {
         <input value={rel.role} onChange={(e) => onChange({ ...rel, role: e.target.value })}
           placeholder="Role (e.g. Partner, Co-leader)" style={{ ...s.input, flex: 1, minWidth: 0 }} />
         <button onClick={() => setExpanded(!expanded)}
-          style={{ ...s.removeBtn, fontSize: 12, color: hasContext ? "#8CBDB9" : "rgba(247,245,250,0.35)" }}
+          style={{ ...s.removeBtn, fontSize: 12, color: hasContext ? "var(--marine)" : "var(--text-2)" }}
           title="Toggle context">{expanded ? "▾" : "▸"}</button>
         <button onClick={onRemove} style={s.removeBtn}>✕</button>
       </div>
@@ -286,7 +306,7 @@ function RelRow({ rel, onChange, onRemove }: {
             width: 104,
             flex: "0 0 auto",
             fontFamily: "monospace",
-            borderColor: misdated ? "rgba(255,144,144,0.5)" : undefined,
+            borderColor: misdated ? "var(--danger)" : undefined,
           }} />
       </div>
 
@@ -306,7 +326,7 @@ function ClaudeIdentityRow({ ci, onChange, onRemove }: {
   onRemove: () => void;
 }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "12px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "12px 0", borderBottom: "1px solid var(--line-soft)" }}>
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
         <input value={ci.name} onChange={(e) => onChange({ ...ci, name: e.target.value })}
           placeholder="Name (e.g. Coru)" style={{ ...s.input, width: "30%" }} />
@@ -349,8 +369,11 @@ function AuthScreen({ onAuthed }: { onAuthed: (a: Account) => void }) {
 
   return (
     <main style={{ padding: "64px 32px", maxWidth: 420, margin: "0 auto" }}>
-      <h1 style={{ fontSize: 26, fontWeight: 700, marginBottom: 8 }}>Personal Context</h1>
-      <p style={{ color: "rgba(247,245,250,0.45)", marginBottom: 32, lineHeight: 1.6 }}>
+      <h1 style={{
+        fontFamily: "var(--font-display), system-ui, sans-serif",
+        fontSize: 30, fontWeight: 700, letterSpacing: "-0.015em", margin: "0 0 8px",
+      }}>Personal Context</h1>
+      <p style={{ color: "var(--text-2)", marginBottom: 32, lineHeight: 1.6 }}>
         The durable facts about you that no codebase or task tracker holds — served to any Claude
         that connects to your URL.
       </p>
@@ -358,9 +381,10 @@ function AuthScreen({ onAuthed }: { onAuthed: (a: Account) => void }) {
       <div style={{ display: "flex", gap: 4, marginBottom: 20 }}>
         {(["login", "signup"] as const).map((m) => (
           <button key={m} onClick={() => { setMode(m); setError(""); }} style={{
-            flex: 1, background: mode === m ? "rgba(255,255,255,0.08)" : "transparent",
-            border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8,
-            color: mode === m ? "#f7f5fa" : "rgba(247,245,250,0.4)",
+            flex: 1, fontFamily: "inherit",
+            background: mode === m ? "var(--raised)" : "transparent",
+            border: "1px solid var(--line)", borderRadius: 8,
+            color: mode === m ? "var(--text)" : "var(--text-2)",
             cursor: "pointer", fontSize: 13, fontWeight: mode === m ? 700 : 400, padding: "9px 0",
           }}>
             {m === "login" ? "Log in" : "Create account"}
@@ -376,18 +400,18 @@ function AuthScreen({ onAuthed }: { onAuthed: (a: Account) => void }) {
           onKeyDown={(e) => e.key === "Enter" && !busy && submit()}
           placeholder={mode === "signup" ? "Password (10+ characters)" : "Password"} style={s.input} />
         <button onClick={submit} disabled={busy || !email || !password} style={{
-          background: "#DFA649", color: "#0f0f11", border: "none", borderRadius: 10,
-          padding: "13px 24px", fontWeight: 700, fontSize: 15,
+          background: "var(--marine)", color: "var(--ground)", border: "none", borderRadius: 10,
+          padding: "13px 24px", fontWeight: 700, fontSize: 15, fontFamily: "inherit",
           cursor: busy ? "default" : "pointer", opacity: busy || !email || !password ? 0.5 : 1,
         }}>
           {busy ? "…" : mode === "login" ? "Log in →" : "Create account →"}
         </button>
       </div>
 
-      {error && <p style={{ color: "#ff9090", fontSize: 13, marginTop: 16 }}>{error}</p>}
+      {error && <p style={{ color: "var(--danger)", fontSize: 13, marginTop: 16 }}>{error}</p>}
 
       {mode === "signup" && (
-        <p style={{ fontSize: 12, color: "rgba(247,245,250,0.3)", marginTop: 20, lineHeight: 1.6 }}>
+        <p style={{ fontSize: 12, color: "var(--text-2)", marginTop: 20, lineHeight: 1.6 }}>
           Already have a context token? Create the account first, then link the token from inside —
           your existing MCP URL keeps working.
         </p>
@@ -450,7 +474,7 @@ function LinkPanel({ onLinked }: { onLinked: (token: string, ctx: PersonalContex
     a.facts.length + a.relationships.length + a.claudeIdentities.length;
 
   return (
-    <div style={{ ...s.section, gap: 12 }}>
+    <div style={{ ...s.section(ACCENT.link), gap: 12 }}>
       <p style={s.sectionTitle}>Link an existing token</p>
       <p style={s.sectionHint}>
         Paste the token or the full MCP URL. That token becomes this account&apos;s context, so any
@@ -462,16 +486,16 @@ function LinkPanel({ onLinked }: { onLinked: (token: string, ctx: PersonalContex
           placeholder="Token or https://…/mcp?token=…"
           style={{ ...s.input, flex: 1, minWidth: 0, fontFamily: "monospace", fontSize: 12 }} />
         <button onClick={preview} disabled={busy || !token.trim()} style={{
-          background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)",
-          borderRadius: 8, color: "rgba(247,245,250,0.7)", cursor: "pointer", fontSize: 13,
+          background: "var(--well)", border: "1px solid var(--line)",
+          borderRadius: 8, color: "var(--text)", cursor: "pointer", fontSize: 13,
           padding: "9px 16px", whiteSpace: "nowrap", opacity: busy || !token.trim() ? 0.5 : 1,
         }}>
           {busy ? "…" : "Check"}
         </button>
       </div>
 
-      {error && <p style={{ color: "#ff9090", fontSize: 13, margin: 0 }}>{error}</p>}
-      {note && <p style={{ color: "#97D181", fontSize: 13, margin: 0 }}>{note}</p>}
+      {error && <p style={{ color: "var(--danger)", fontSize: 13, margin: 0 }}>{error}</p>}
+      {note && <p style={{ color: "var(--ok)", fontSize: 13, margin: 0 }}>{note}</p>}
 
       {plan && (
         <>
@@ -486,15 +510,15 @@ function LinkPanel({ onLinked }: { onLinked: (token: string, ctx: PersonalContex
 
           {plan.conflicts.length > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <p style={{ color: "#DFA649", fontSize: 13, margin: 0 }}>
+              <p style={{ color: "var(--tan)", fontSize: 13, margin: 0 }}>
                 {plan.conflicts.length} item(s) exist on both sides with different content. Pick which to keep.
               </p>
               {plan.conflicts.map((c) => {
                 const k = conflictKey(c);
                 return (
-                  <div key={k} style={{ border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: 10 }}>
-                    <p style={{ fontSize: 12, color: "rgba(247,245,250,0.5)", margin: "0 0 8px 0" }}>
-                      <strong style={{ color: "#f7f5fa" }}>{c.key}</strong>
+                  <div key={k} style={{ border: "1px solid var(--line-soft)", borderRadius: 8, padding: 10 }}>
+                    <p style={{ fontSize: 12, color: "var(--text-2)", margin: "0 0 8px 0" }}>
+                      <strong style={{ color: "var(--text)" }}>{c.key}</strong>
                       <span style={{ opacity: 0.5 }}> · {c.collection}</span>
                     </p>
                     <div style={{ display: "flex", gap: 8 }}>
@@ -502,12 +526,12 @@ function LinkPanel({ onLinked }: { onLinked: (token: string, ctx: PersonalContex
                         <button key={side} onClick={() => setChoices((p) => ({ ...p, [k]: side }))}
                           style={{
                             flex: 1, minWidth: 0, textAlign: "left", cursor: "pointer",
-                            background: choices[k] === side ? "rgba(139,189,185,0.12)" : "rgba(255,255,255,0.03)",
-                            border: `1px solid ${choices[k] === side ? "rgba(139,189,185,0.5)" : "rgba(255,255,255,0.08)"}`,
-                            borderRadius: 6, padding: 8, color: "#f7f5fa", fontSize: 11,
+                            background: choices[k] === side ? "var(--raised)" : "var(--well)",
+                            border: `1px solid ${choices[k] === side ? "var(--marine)" : "var(--line-soft)"}`,
+                            borderRadius: 6, padding: 8, color: "var(--text)", fontSize: 11,
                           }}>
                           <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em",
-                            color: choices[k] === side ? "#8CBDB9" : "rgba(247,245,250,0.35)", marginBottom: 4 }}>
+                            color: choices[k] === side ? "var(--marine)" : "var(--text-2)", marginBottom: 4 }}>
                             {side === "token" ? "From token" : "In this account"}
                           </div>
                           <div style={{ maxHeight: 84, overflow: "auto", whiteSpace: "pre-wrap",
@@ -525,14 +549,14 @@ function LinkPanel({ onLinked }: { onLinked: (token: string, ctx: PersonalContex
 
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={commit} disabled={busy} style={{
-              background: "#DFA649", color: "#0f0f11", border: "none", borderRadius: 8,
+              background: "var(--marine)", color: "var(--ground)", border: "none", borderRadius: 8,
               cursor: "pointer", fontSize: 13, fontWeight: 700, padding: "9px 20px", opacity: busy ? 0.6 : 1,
             }}>
               {busy ? "Linking…" : plan.accountIsEmpty ? "Adopt this token" : "Merge and link"}
             </button>
             <button onClick={() => { setOpen(false); setPlan(null); setError(""); setNote(""); }} style={{
-              background: "none", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8,
-              color: "rgba(247,245,250,0.4)", cursor: "pointer", fontSize: 13, padding: "9px 16px",
+              background: "none", border: "1px solid var(--line)", borderRadius: 8,
+              color: "var(--text-2)", cursor: "pointer", fontSize: 13, padding: "9px 16px",
             }}>
               Cancel
             </button>
@@ -553,6 +577,8 @@ export default function Home() {
   const [loaded, setLoaded] = useState(false);
   const [status, setStatus] = useState<"idle" | "loading" | "saving" | "saved" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
+  /** Serialised copy of the last state we know is on the server. */
+  const [savedSnapshot, setSavedSnapshot] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   const token = account?.contextToken ?? "";
@@ -563,7 +589,9 @@ export default function Home() {
     setLoaded(false);
     try {
       const data = await loadContext(t);
-      setCtx({ ...EMPTY, ...data });
+      const fresh = { ...EMPTY, ...data };
+      setCtx(fresh);
+      setSavedSnapshot(JSON.stringify(fresh));
       setLoaded(true);
       setStatus("idle");
     } catch {
@@ -597,14 +625,18 @@ export default function Home() {
     await api("/api/auth", { action: "logout" });
     setAccount(null);
     setCtx(EMPTY);
+    setSavedSnapshot(null);
     setLoaded(false);
   };
 
   const save = async () => {
     if (!loaded) return;
     setStatus("saving");
+    // Snapshot what we actually send: edits made mid-save must stay dirty.
+    const sent = ctx;
     try {
-      await saveContext(token, ctx);
+      await saveContext(token, sent);
+      setSavedSnapshot(JSON.stringify(sent));
       setStatus("saved");
       setTimeout(() => setStatus("idle"), 2000);
     } catch (e) {
@@ -612,6 +644,8 @@ export default function Home() {
       setStatus("error");
     }
   };
+
+  const dirty = loaded && savedSnapshot !== null && JSON.stringify(ctx) !== savedSnapshot;
 
   const copy = () => {
     navigator.clipboard.writeText(mcpUrl);
@@ -646,7 +680,7 @@ export default function Home() {
   if (!booted) {
     return (
       <main style={{ padding: "64px 32px", maxWidth: 560, margin: "0 auto" }}>
-        <p style={{ color: "rgba(247,245,250,0.3)", fontSize: 13 }}>Loading…</p>
+        <p style={{ color: "var(--text-2)", fontSize: 14 }}>Loading…</p>
       </main>
     );
   }
@@ -654,47 +688,126 @@ export default function Home() {
   if (!account) return <AuthScreen onAuthed={onAuthed} />;
 
   // ── editor ──────────────────────────────────────────────────────────────────
+  const saveLabel =
+    status === "saving" ? "Saving…" : status === "saved" && !dirty ? "Saved ✓" : "Save";
+
   return (
-    <main style={{ padding: "40px 32px", maxWidth: 680, margin: "0 auto" }}>
+    <>
+      {/*
+        Sticky, so Save is reachable from anywhere in a long context. It was
+        previously at the top of a 700px-tall form, which meant scrolling back up
+        to commit an edit you made at the bottom.
+      */}
+      <header
+        style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 10,
+          background: "var(--walnut)",
+          borderBottom: "1px solid var(--line)",
+          boxShadow: "0 8px 24px rgba(0,0,0,0.45)",
+        }}
+      >
+        <div
+          style={{
+            maxWidth: 680,
+            margin: "0 auto",
+            padding: "14px 32px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 16,
+            flexWrap: "wrap",
+          }}
+        >
+          <div>
+            <h1
+              style={{
+                fontFamily: "var(--font-display), system-ui, sans-serif",
+                fontSize: 24,
+                fontWeight: 700,
+                letterSpacing: "-0.01em",
+                margin: 0,
+              }}
+            >
+              Personal Context
+            </h1>
+            <p style={{ fontSize: 13, color: "var(--text-2)", margin: 0 }}>{account.email}</p>
+          </div>
 
-      {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 32 }}>
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>Personal Context</h1>
-          <p style={{ fontSize: 13, color: "rgba(247,245,250,0.35)", margin: 0 }}>{account.email}</p>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            {/*
+              Unsaved work is the expensive failure in an editor, so the state is
+              stated in words rather than implied by an enabled button. Colour is
+              never the only carrier — the text changes too.
+            */}
+            <span
+              style={{
+                fontSize: 12,
+                color: dirty ? "var(--tan)" : "var(--text-2)",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {dirty ? "● Unsaved changes" : status === "saved" ? "All changes saved" : ""}
+            </span>
+
+            <button onClick={copy} style={s.ghostBtn}>
+              {copied ? "Copied ✓" : "Copy MCP URL"}
+            </button>
+
+            <button
+              onClick={save}
+              disabled={!loaded || status === "saving" || status === "loading"}
+              title={
+                !loaded
+                  ? "Context hasn't loaded — saving is disabled to protect your data."
+                  : undefined
+              }
+              style={{
+                background: "var(--marine)",
+                border: "none",
+                borderRadius: "var(--radius)",
+                color: "var(--ground)",
+                cursor: loaded ? "pointer" : "not-allowed",
+                fontSize: 13,
+                fontWeight: 700,
+                fontFamily: "inherit",
+                padding: "9px 22px",
+                opacity: !loaded || status === "saving" ? 0.5 : 1,
+              }}
+            >
+              {saveLabel}
+            </button>
+          </div>
         </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <button onClick={copy} style={{
-            background: "rgba(139,189,185,0.1)", border: "1px solid rgba(139,189,185,0.2)",
-            borderRadius: 8, color: "#8CBDB9", cursor: "pointer", fontSize: 13, padding: "7px 14px",
-          }}>
-            {copied ? "Copied ✓" : "Copy MCP URL"}
-          </button>
-          <button onClick={save} disabled={!loaded || status === "saving" || status === "loading"}
-            title={!loaded ? "Context hasn't loaded — saving is disabled to protect your data." : undefined}
+      </header>
+
+      <main style={{ padding: "28px 32px 64px", maxWidth: 680, margin: "0 auto" }}>
+        {status === "loading" && (
+          <p style={{ color: "var(--text-2)", fontSize: 14, marginBottom: 24 }}>
+            Loading your context…
+          </p>
+        )}
+        {status === "error" && (
+          <p
             style={{
-              background: status === "saved" ? "rgba(151,209,129,0.15)" : "#DFA649",
-              border: "none", borderRadius: 8,
-              color: status === "saved" ? "#97D181" : "#0f0f11",
-              cursor: loaded ? "pointer" : "not-allowed", fontSize: 13, fontWeight: 700, padding: "7px 20px",
-              opacity: !loaded || status === "saving" ? 0.5 : 1,
-            }}>
-            {status === "saving" ? "Saving…" : status === "saved" ? "Saved ✓" : "Save"}
-          </button>
-        </div>
-      </div>
-
-      {status === "loading" && (
-        <p style={{ color: "rgba(247,245,250,0.3)", fontSize: 13, marginBottom: 24 }}>Loading your context…</p>
-      )}
-      {status === "error" && (
-        <p style={{ color: "#ff9090", fontSize: 13, marginBottom: 24 }}>{errorMsg}</p>
-      )}
+              color: "var(--danger)",
+              fontSize: 14,
+              marginBottom: 24,
+              background: "var(--well)",
+              border: "1px solid var(--danger)",
+              borderRadius: "var(--radius)",
+              padding: "12px 14px",
+            }}
+          >
+            {errorMsg}
+          </p>
+        )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
         {/* About you */}
-        <div style={s.section}>
+        <div style={s.section(ACCENT.user)}>
           <p style={s.sectionTitle}>About You</p>
           <Field label="Name" value={ctx.user.name}
             onChange={(v) => setCtx((c) => ({ ...c, user: { ...c.user, name: v } }))}
@@ -708,7 +821,7 @@ export default function Home() {
         </div>
 
         {/* Claude Identities */}
-        <div style={s.section}>
+        <div style={s.section(ACCENT.identities)}>
           <p style={s.sectionTitle}>Claude Identities</p>
           {(ctx.claudeIdentities ?? []).map((ci, i) => (
             <ClaudeIdentityRow key={i} ci={ci}
@@ -719,7 +832,7 @@ export default function Home() {
         </div>
 
         {/* Facts */}
-        <div style={s.section}>
+        <div style={s.section(ACCENT.facts)}>
           <p style={s.sectionTitle}>Facts</p>
           <p style={s.sectionHint}>
             Durable things about you that aren&apos;t reconstructible from a codebase or ChaosPatch.
@@ -734,7 +847,7 @@ export default function Home() {
         </div>
 
         {/* Relationships */}
-        <div style={s.section}>
+        <div style={s.section(ACCENT.relationships)}>
           <p style={s.sectionTitle}>Relationships</p>
           <p style={s.sectionHint}>
             Personal and professional in one list. Add people with an ongoing or intended ongoing
@@ -752,39 +865,51 @@ export default function Home() {
           <button onClick={addRel} style={s.addBtn}>+ Add person</button>
         </div>
 
-        {/* MCP URL */}
-        <div style={{ padding: "14px 16px", background: "rgba(139,189,185,0.06)", border: "1px solid rgba(139,189,185,0.15)", borderRadius: 12 }}>
-          <p style={{ fontSize: 11, color: "rgba(247,245,250,0.35)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.08em" }}>Your MCP URL</p>
+        {/* MCP URL — a credential, not a field, so it gets the warm zone treatment. */}
+        <div style={{
+          padding: "16px 18px",
+          background: "var(--walnut)",
+          border: "1px solid var(--line-soft)",
+          borderRadius: "var(--radius-lg)",
+        }}>
+          <p style={{
+            fontFamily: "var(--font-display), system-ui, sans-serif",
+            fontSize: 12, fontWeight: 700, color: "var(--text)", margin: "0 0 8px",
+            textTransform: "uppercase", letterSpacing: "0.12em",
+          }}>Your MCP URL</p>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <code style={{ fontSize: 12, color: "#8CBDB9", flex: 1, minWidth: 0, wordBreak: "break-all" }}>{mcpUrl}</code>
+            <code style={{ fontSize: 12, color: "var(--marine)", flex: 1, minWidth: 0, wordBreak: "break-all" }}>{mcpUrl}</code>
             <button onClick={copy} style={{
-              background: "rgba(139,189,185,0.1)", border: "1px solid rgba(139,189,185,0.2)",
-              borderRadius: 6, color: "#8CBDB9", cursor: "pointer", fontSize: 12, padding: "5px 10px", whiteSpace: "nowrap",
+              background: "var(--well)", border: "1px solid var(--line)",
+              borderRadius: 6, color: "var(--marine)", cursor: "pointer", fontSize: 12, padding: "5px 10px", whiteSpace: "nowrap",
             }}>
               {copied ? "✓" : "Copy"}
             </button>
           </div>
-          <p style={{ fontSize: 11, color: "rgba(247,245,250,0.25)", marginTop: 8, margin: "8px 0 0 0" }}>
+          <p style={{ fontSize: 11, color: "var(--text-3)", marginTop: 8, margin: "8px 0 0 0" }}>
             Treat this like a password — anyone holding it can read your context. Add{" "}
-            <code style={{ color: "#8CBDB9" }}>&name=Coru</code> to mark that identity{" "}
-            <code style={{ color: "#8CBDB9" }}>self: true</code>.
+            <code style={{ color: "var(--marine)" }}>&name=Coru</code> to mark that identity{" "}
+            <code style={{ color: "var(--marine)" }}>self: true</code>.
           </p>
         </div>
 
         <LinkPanel onLinked={(t, merged) => {
           setAccount((a) => (a ? { ...a, contextToken: t } : a));
-          setCtx({ ...EMPTY, ...merged });
+          const fresh = { ...EMPTY, ...merged };
+          setCtx(fresh);
+          setSavedSnapshot(JSON.stringify(fresh));
           setLoaded(true);
         }} />
 
         <div style={{ textAlign: "center", paddingTop: 8 }}>
           <button onClick={logout}
-            style={{ background: "none", border: "none", color: "rgba(247,245,250,0.25)", cursor: "pointer", fontSize: 12 }}>
+            style={{ background: "none", border: "none", color: "var(--text-3)", cursor: "pointer", fontSize: 12 }}>
             Log out
           </button>
         </div>
 
       </div>
-    </main>
+      </main>
+    </>
   );
 }

@@ -1,0 +1,96 @@
+/*
+ * Design tokens.
+ *
+ * Built from the project palette, but NOT used raw — the palette's two darks
+ * (Deep Sage #103517 and Slate Walnut #2D1103) sit at the same luminance
+ * (1.29:1 apart), so they cannot both be structural surface levels: a walnut
+ * field on a sage card would have a boundary you can see only by hue. The sage
+ * hue therefore carries the whole surface ladder, and walnut is reassigned to
+ * warm ZONES (the header bar, the MCP callout) where a large area makes the
+ * hue shift legible on its own.
+ *
+ * Every text pair below is measured against the surface it actually sits on and
+ * clears WCAG AA (4.5:1); interactive boundaries clear 3:1 per SC 1.4.11. The
+ * numbers in the comments are the real ratios, not estimates.
+ */
+:root {
+  /* Surfaces — one sage ladder, each step perceptibly lighter than the last. */
+  --ground: #071a0d; /* page */
+  --card: #103517; /* Deep Sage — section cards */
+  --well: #0b240f; /* inputs, cut into the card */
+  --raised: #1a4f27; /* hover / active lift */
+
+  /* Warm zone — hue accent, never a surface level. */
+  --walnut: #2d1103; /* Slate Walnut */
+
+  /* Text — ratios given on --card, the tightest surface. */
+  --text: #f2efe6; /* 11.83:1  AAA */
+  --text-2: #b9c9bc; /*  7.87:1  AAA */
+  --text-3: #8fa894; /*  5.31:1  AA  */
+
+  /* Chromatics. Marine Drift is the only palette colour readable as text. */
+  --marine: #48aadb; /* Marine Drift — interactive     5.21:1 */
+  --teal: #5fb3ce; /* lifted from #387F97            5.72:1 */
+  --plum: #60237b; /* fill only — 1.31:1 as text     */
+  --plum-lift: #c08ae0; /* the readable tint of it        5.15:1 */
+  --tan: #c98a5a; /* warm accent, walnut's hue      */
+
+  --danger: #ff9e9e; /*  6.89:1 */
+  --ok: #97d181; /*  7.61:1 */
+
+  /* Boundaries. --line clears 3:1 on --card so fields are identifiable. */
+  --line: #46895a; /* 3.23:1 on card, 3.92:1 on well */
+  --line-soft: rgba(70, 137, 90, 0.35); /* decorative card edges */
+
+  --radius: 10px;
+  --radius-lg: 14px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--text);
+  /* 15px base — the old 14px with 40%-opacity labels was the readability bug. */
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * Placeholders were inheriting the browser default, which lands near 2:1 on
+ * these surfaces. Pinned to a measured value instead.
+ */
+::placeholder {
+  color: var(--text-3);
+  opacity: 1; /* Firefox dims placeholders again on top of the colour. */
+}
+
+/*
+ * Inputs previously set `outline: none` with nothing in its place, so keyboard
+ * focus was invisible. :focus-visible keeps the ring off mouse clicks.
+ */
+:focus-visible {
+  outline: 2px solid var(--marine);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+::selection {
+  background: var(--marine);
+  color: var(--ground);
+}
+
+/* Motion is decorative here, so it goes away entirely when asked. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
