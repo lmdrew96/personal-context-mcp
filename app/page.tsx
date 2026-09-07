@@ -231,8 +231,9 @@ function RelRow({ rel, onChange, onRemove }: {
 }) {
   const [expanded, setExpanded] = useState(false);
   const hasContext = !!(rel.context?.trim());
+  const misdated = !!rel.established && !/^\d{4}(-\d{2}){0,2}$/.test(rel.established);
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "12px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
         <input value={rel.name} onChange={(e) => onChange({ ...rel, name: e.target.value })}
           placeholder="Name" style={{ ...s.input, width: "35%" }} />
@@ -243,10 +244,34 @@ function RelRow({ rel, onChange, onRemove }: {
           title="Toggle context">{expanded ? "▾" : "▸"}</button>
         <button onClick={onRemove} style={s.removeBtn}>✕</button>
       </div>
+      {/* Meta row: pronouns and the date keep fixed widths, affiliation takes the rest. */}
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <input value={rel.pronouns ?? ""}
+          onChange={(e) => onChange({ ...rel, pronouns: e.target.value || undefined })}
+          placeholder="pronouns"
+          title="Free text. Leave blank if unknown — blank means ask, not they/them by default."
+          style={{ ...s.input, width: 104, flex: "0 0 auto" }} />
+        <input value={rel.affiliation ?? ""}
+          onChange={(e) => onChange({ ...rel, affiliation: e.target.value || undefined })}
+          placeholder="Affiliation (e.g. UD, Dept. of Linguistics & Cognitive Science)"
+          style={{ ...s.input, flex: 1, minWidth: 0 }} />
+        <input value={rel.established ?? ""}
+          onChange={(e) => onChange({ ...rel, established: e.target.value || undefined })}
+          placeholder="YYYY-MM"
+          title="When the relationship started. Professional connections rot on a semester clock."
+          style={{
+            ...s.input,
+            width: 104,
+            flex: "0 0 auto",
+            fontFamily: "monospace",
+            borderColor: misdated ? "rgba(255,144,144,0.5)" : undefined,
+          }} />
+      </div>
+
       {expanded && (
         <textarea value={rel.context ?? ""}
           onChange={(e) => onChange({ ...rel, context: e.target.value || undefined })}
-          placeholder="Context — personality, lore, how you know them (only injected when relevant)"
+          placeholder="Context — personality, lore, how you know them, current vs. past (only injected when relevant)"
           rows={2} style={{ ...s.input, resize: "vertical", lineHeight: 1.6 }} />
       )}
     </div>
@@ -698,6 +723,12 @@ export default function Home() {
         {/* Relationships */}
         <div style={s.section}>
           <p style={s.sectionTitle}>Relationships</p>
+          <p style={s.sectionHint}>
+            Personal and professional in one list. Add people with an ongoing or intended ongoing
+            relationship — not everyone you&apos;ve emailed. Someone who is evidence in a situation
+            rather than a connection belongs in facts. Leave pronouns blank when you don&apos;t
+            know them; blank means ask, and a guess from the name is how it goes wrong.
+          </p>
           {ctx.relationships.map((r, i) => (
             <RelRow key={i} rel={r}
               onChange={(updated) => updateRel(i, updated)}

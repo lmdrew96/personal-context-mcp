@@ -44,7 +44,7 @@ Stored as JSON per user key. Structure:
   user: { name, pronouns, communicationStyle },
   claudeIdentities: [{ name, role, home, access, blurb }],
   facts: [{ label, category, content, source?, established, confidence? }],
-  relationships: [{ name, role, context? }],
+  relationships: [{ name, role, pronouns?, affiliation?, established?, context? }],
   preferences: string[]
 }
 ```

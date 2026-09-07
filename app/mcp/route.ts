@@ -19,7 +19,7 @@ const TOOLS = [
   {
     name: "pctx_get_context",
     description:
-      "Retrieve the personal context: the user, registered Claude identities, dated facts, relationships, and preferences. Use depth='summary' for a lightweight index (fact labels+categories, relationship names+roles). Use depth='full' (default) for everything including fact content, sources and relationship context. In the response, `claudeIdentities` is a flat array and the identity making the request is marked `self: true`.",
+      "Retrieve the personal context: the user, registered Claude identities, dated facts, and relationships. Use depth='summary' for a lightweight index (fact labels+categories; relationship names, roles, pronouns and affiliations). Use depth='full' (default) for everything including fact content, sources and relationship context. A relationship with no `pronouns` means they are UNKNOWN — ask, do not infer them from the name. In the response, `claudeIdentities` is a flat array and the identity making the request is marked `self: true`.",
     inputSchema: {
       type: "object",
       properties: {
@@ -84,6 +84,9 @@ const TOOLS = [
             properties: {
               name: { type: "string" },
               role: { type: "string" },
+              pronouns: { type: "string" },
+              affiliation: { type: "string" },
+              established: { type: "string", description: "'YYYY', 'YYYY-MM' or 'YYYY-MM-DD'." },
               context: { type: "string" },
             },
           },
@@ -146,25 +149,32 @@ const TOOLS = [
   },
   {
     name: "pctx_add_relationship",
-    description: "Add a person to the relationships (e.g. partner, close friend, collaborator).",
+    description:
+      "Add a person to the relationships — personal or professional, one array for both. Only add people with an ongoing or intended ongoing relationship, not everyone the user has emailed; a person who is evidence in a situation rather than a connection is a fact, not a relationship.",
     inputSchema: {
       type: "object",
       properties: {
         name: { type: "string", description: "Person's name." },
-        role: { type: "string", description: "Short role title (e.g. 'Partner', 'Close friend', 'Co-leader')." },
-        context: { type: "string", description: "Longer narrative — personality, lore, how you know them. Only injected when relevant." },
+        role: { type: "string", description: "Short role title (e.g. 'Partner', 'Close friend', 'LING 202 professor')." },
+        pronouns: { type: "string", description: "Free text (e.g. 'he/him', 'she/they'). Omit if unknown — never guess from the name." },
+        affiliation: { type: "string", description: "Institution or org (e.g. 'UD, Dept. of Linguistics & Cognitive Science')." },
+        established: { type: "string", description: "When the relationship started, as 'YYYY', 'YYYY-MM' or 'YYYY-MM-DD'. Professional connections rot on a semester clock — date them." },
+        context: { type: "string", description: "Longer narrative — personality, lore, how you know them, and current-vs-past status. Only injected when relevant." },
       },
       required: ["name", "role"],
     },
   },
   {
     name: "pctx_update_relationship",
-    description: "Update an existing relationship by name.",
+    description: "Update an existing relationship by name. Only the fields you pass are changed.",
     inputSchema: {
       type: "object",
       properties: {
         name: { type: "string", description: "The name of the person to update." },
         role: { type: "string", description: "Short role title." },
+        pronouns: { type: "string", description: "Free text (e.g. 'he/him', 'she/they')." },
+        affiliation: { type: "string", description: "Institution or org." },
+        established: { type: "string", description: "'YYYY', 'YYYY-MM' or 'YYYY-MM-DD'." },
         context: { type: "string", description: "Longer narrative context." },
       },
       required: ["name"],
@@ -310,7 +320,14 @@ export async function POST(req: Request) {
       if (args.user) patch.user = args.user as PersonalContext["user"];
       if (args.claudeIdentities) patch.claudeIdentities = args.claudeIdentities as PersonalContext["claudeIdentities"];
       if (args.preferences) patch.preferences = args.preferences as string[];
-      if (args.relationships) patch.relationships = args.relationships as PersonalContext["relationships"];
+      if (args.relationships) {
+        const rels = args.relationships as Relationship[];
+        const misdated = rels.find((r) => r.established && !ESTABLISHED_RE.test(r.established));
+        if (misdated) {
+          return err(id, -32602, `Relationship "${misdated.name}" has an \`established\` value that isn't 'YYYY', 'YYYY-MM' or 'YYYY-MM-DD'.`);
+        }
+        patch.relationships = rels;
+      }
       if (args.facts) {
         const facts = args.facts as Fact[];
         const undated = facts.find((f) => !f.established || !ESTABLISHED_RE.test(f.established));
@@ -386,10 +403,16 @@ export async function POST(req: Request) {
 
     if (name === "pctx_add_relationship") {
       const ctx = await getContext(token);
+      if (args.established && !ESTABLISHED_RE.test(args.established as string)) {
+        return err(id, -32602, "`established` must be 'YYYY', 'YYYY-MM' or 'YYYY-MM-DD'.");
+      }
       const rel: Relationship = {
         name: args.name as string,
         role: args.role as string,
       };
+      if (args.pronouns) rel.pronouns = args.pronouns as string;
+      if (args.affiliation) rel.affiliation = args.affiliation as string;
+      if (args.established) rel.established = args.established as string;
       if (args.context) rel.context = args.context as string;
       ctx.relationships.push(rel);
       await patchContext(token, { relationships: ctx.relationships });
@@ -402,8 +425,16 @@ export async function POST(req: Request) {
       const ctx = await getContext(token);
       const idx = ctx.relationships.findIndex((r) => r.name === args.name);
       if (idx === -1) return err(id, -32602, `Relationship "${args.name}" not found.`);
-      if (args.role !== undefined) ctx.relationships[idx].role = args.role as string;
-      if (args.context !== undefined) ctx.relationships[idx].context = args.context as string;
+      if (args.established !== undefined && args.established !== "" && !ESTABLISHED_RE.test(args.established as string)) {
+        return err(id, -32602, "`established` must be 'YYYY', 'YYYY-MM' or 'YYYY-MM-DD'.");
+      }
+      const rel = ctx.relationships[idx];
+      if (args.role !== undefined) rel.role = args.role as string;
+      // Passing "" clears an optional field rather than storing an empty string.
+      if (args.pronouns !== undefined) rel.pronouns = (args.pronouns as string) || undefined;
+      if (args.affiliation !== undefined) rel.affiliation = (args.affiliation as string) || undefined;
+      if (args.established !== undefined) rel.established = (args.established as string) || undefined;
+      if (args.context !== undefined) rel.context = (args.context as string) || undefined;
       await patchContext(token, { relationships: ctx.relationships });
       return ok(id, {
         content: [{ type: "text", text: `Relationship "${args.name}" updated.` }],

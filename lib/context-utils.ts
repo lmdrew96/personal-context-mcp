@@ -3,13 +3,21 @@ import type { PersonalContext, ContextSummary } from "./types";
 /**
  * Strip a PersonalContext down to lightweight summary form.
  * Facts → { label, category } only (no content, no source).
- * Relationships → { name, role } only.
+ * Relationships → { name, role, pronouns, affiliation }; the narrative `context`
+ * is what gets dropped. Pronouns and affiliation ride along because they are
+ * needed exactly when Claude writes ABOUT the person, and having to make a
+ * full-depth call to get them is how you end up guessing instead.
  * Everything else passes through unchanged.
  */
 export const summarizeContext = (ctx: PersonalContext): ContextSummary => ({
   ...ctx,
   facts: ctx.facts.map(({ label, category }) => ({ label, category })),
-  relationships: ctx.relationships.map(({ name, role }) => ({ name, role })),
+  relationships: ctx.relationships.map(({ name, role, pronouns, affiliation }) => ({
+    name,
+    role,
+    pronouns,
+    affiliation,
+  })),
 });
 
 /**

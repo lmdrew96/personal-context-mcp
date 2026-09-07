@@ -37,6 +37,15 @@ export type Fact = {
 export type Relationship = {
   name: string;
   role: string;
+  /**
+   * Free text ("he/him", "she/they"). Absent means UNKNOWN, not neutral —
+   * the signal to ask rather than infer from the name.
+   */
+  pronouns?: string;
+  /** Institution or org, e.g. "UD, Dept. of Linguistics & Cognitive Science". */
+  affiliation?: string;
+  /** When the relationship started. Same format as Fact.established. */
+  established?: string;
   context?: string;
 };
 
@@ -83,7 +92,7 @@ export const DEFAULT_CONTEXT: PersonalContext = {
 /** Lightweight projection returned by depth='summary'. */
 export type ContextSummary = Omit<PersonalContext, "facts" | "relationships"> & {
   facts: Pick<Fact, "label" | "category">[];
-  relationships: Pick<Relationship, "name" | "role">[];
+  relationships: Pick<Relationship, "name" | "role" | "pronouns" | "affiliation">[];
 };
 
 // ── Legacy shapes (read-side migration only) ─────────────────────────────────
