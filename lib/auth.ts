@@ -1,3 +1,5 @@
+import { pbkdf2Async } from "@noble/hashes/pbkdf2.js";
+import { sha256 } from "@noble/hashes/sha2.js";
 import { Redis } from "@upstash/redis";
 
 /**
@@ -25,7 +27,11 @@ export const SESSION_COOKIE = "pctx_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 days
 
 /** Stored in the record so the cost can be raised later without breaking old hashes. */
-const PBKDF2_ITERATIONS = 600_000;
+// Workers refuses native PBKDF2 above 100k iterations ("Pbkdf2 failed:
+// iteration counts above 100000 are not supported"), so new hashes use 100k.
+// Older 600k records still verify through the pure-JS fallback in derive().
+const PBKDF2_ITERATIONS = 100_000;
+const NATIVE_PBKDF2_MAX = 100_000;
 const PBKDF2_HASH = "SHA-256";
 const SALT_BYTES = 16;
 const KEY_BYTES = 32;
@@ -79,6 +85,11 @@ const derive = async (
   iterations: number,
   hash: string
 ): Promise<ArrayBuffer> => {
+  if (iterations > NATIVE_PBKDF2_MAX) {
+    if (hash !== "SHA-256") throw new Error(`Unsupported PBKDF2 hash: ${hash}`);
+    const out = await pbkdf2Async(sha256, password, salt, { c: iterations, dkLen: KEY_BYTES });
+    return out.buffer as ArrayBuffer;
+  }
   const keyMaterial = await crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(password),
