@@ -3,6 +3,8 @@ node_modules/
 .env.local
 .vercel
 *.tsbuildinfo
+.env
+.DS_Store
 
 # Cloudflare
 .open-next
