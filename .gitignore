@@ -3,3 +3,10 @@ node_modules/
 .env.local
 .vercel
 *.tsbuildinfo
+
+# Cloudflare
+.open-next
+.wrangler
+# local secrets for `wrangler dev`: never committed
+.dev.vars
+cloudflare-env.d.ts

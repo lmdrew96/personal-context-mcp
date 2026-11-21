@@ -1,8 +1,6 @@
 import { getContext } from "@/lib/storage";
 import { summarizeContext } from "@/lib/context-utils";
 
-export const runtime = "edge";
-
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const token = url.searchParams.get("token");

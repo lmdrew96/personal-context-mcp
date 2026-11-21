@@ -4,7 +4,9 @@ import { useState, useEffect, useCallback } from "react";
 import type { PersonalContext, ClaudeIdentity, Fact, Relationship } from "@/lib/types";
 import { FACT_CATEGORIES, FACT_CONFIDENCES } from "@/lib/types";
 
-const BASE_URL = "https://personal-context-mcp.vercel.app";
+// The origin this page was served from, so connector URLs match the host.
+const BASE_URL =
+  typeof window !== "undefined" ? window.location.origin : "https://pctx.adhdesigns.dev";
 
 type Account = { email: string; contextToken: string; createdAt: string };
 

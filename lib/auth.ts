@@ -213,5 +213,9 @@ export const isRateLimited = async (
 export const clearRateLimit = async (scope: string, id: string) =>
   redis.del(rateKey(scope, await rateId(id)));
 
+// Cloudflare puts the visitor's IP in CF-Connecting-IP; X-Forwarded-For is
+// the fallback for local dev and other hosts.
 export const clientIp = (req: Request) =>
-  req.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown";
+  req.headers.get("cf-connecting-ip") ??
+  req.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
+  "unknown";
